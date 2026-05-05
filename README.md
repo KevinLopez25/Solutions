@@ -1,123 +1,190 @@
 # Generador de Propuestas Comerciales — Periferia IT
 
-Genera presentaciones PowerPoint de propuestas comerciales a partir del Excel de estimación del proyecto. Subes el Excel, eliges la filial, y el sistema arma el PPTX listo para entregar al cliente.
+Genera presentaciones PowerPoint (.pptx) de propuestas comerciales y cronogramas (.xlsx) a partir del Excel de estimación del proyecto.
 
-## Requisitos
+## Arquitectura
 
-- Python 3.10 o superior
+```
+Solutions/
+├── backend/          FastAPI (Python 3.10+)
+├── frontend/         React + Vite
+└── database/         Schema MySQL
+```
 
-## Instalación
+**Flujo general:**
+```
+Frontend (React)
+  └─ Sube Excel → selecciona torres/filial/pills
+  └─ POST /api/v1/propuesta/generar
+       └─ Consulta BD → build_catalog_data()
+       └─ Generadores PPTX en cadena
+       └─ Retorna .pptx en base64 → descarga automática
+```
+
+---
+
+## Requisitos previos
+
+- Python 3.10+
+- Node.js 18+
+- MySQL 8.0+
+
+---
+
+## 1. Base de datos
+
+Ejecutar los dos scripts en orden en MySQL Workbench:
+
+```sql
+-- 1. Crea las tablas
+SOURCE database/schema.sql;
+
+-- 2. Carga todos los datos del catálogo
+SOURCE database/seed_data.sql;
+```
+
+**¿Qué queda cargado después de ejecutar ambos scripts?**
+
+| Tabla | Registros |
+|---|---|
+| `torres` | 14 torres (Fullstack, QA, Arquitectura, Datos, RPA, DevOps, Ciberseguridad, IA, SAP, PMO, Mobile, Portales, Integración, Soporte) |
+| `perfiles` | 90 perfiles con rol y descripción por torre |
+| `fuera_del_alcance` | 158 ítems por torre |
+| `consideraciones` | 52 consideraciones por torre y generales |
+| `entregables` | 64 entregables por torre |
+
+> Todos los datos provienen del archivo `Generales_para_todos.xlsx` que se usaba antes. La BD queda lista para usar desde el primer arranque.
+
+---
+
+## 2. Backend
 
 ```bash
-git clone https://github.com/JuanDGG0/Automatizaci-n-pre-venta.git
-cd Automatizaci-n-pre-venta
-pip install -r requirements.txt --break-system-packages
+cd backend
+copy .env.example .env
 ```
 
-## Uso
+Editar `.env` con las credenciales de MySQL:
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=solutions_db
+DB_USER=root
+DB_PASSWORD=tu_password
+```
+
+Instalar dependencias e iniciar:
 
 ```bash
-python3 server.py
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
 ```
 
-Luego abre `http://localhost:8090` en el navegador. Para detener el servidor presiona `Ctrl+C`.
+La API queda disponible en `http://localhost:8000`.  
+Documentación interactiva: `http://localhost:8000/docs`
 
-> Cada vez que modifiques código, reinicia el servidor con `Ctrl+C` y vuelve a correr `python3 server.py`.
+---
 
-## Estructura
+## 3. Frontend
 
-```
-Automatizaci-n-pre-venta/
-├── server.py                     # Servidor HTTP (multihilo, puerto 8090)
-├── requirements.txt
-├── static/
-│   └── home.html                 # Interfaz web
-├── data/
-│   ├── Generales_para_todos.xlsx # Catálogo de contenido genérico
-│   └── FOR-CA-CUADRO_BASE_ESTIMACIÓN_PROPUESTAS.xlsx
-├── templates/
-│   ├── CS-FR-012-...-CORP.pptx
-│   ├── CS-FR-005-...-GROUP.pptx
-│   └── CS-FR-011-...-CBIT.pptx
-├── generators/
-│   ├── __init__.py               # Orquestador
-│   ├── fda_perfiles.py           # Slides Perfiles y Fuera del Alcance
-│   ├── consideraciones.py        # Slide Consideraciones
-│   └── cronograma_entregables.py # Slide Entregables
-└── tests/
-    └── test_e2e.py
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-## Cómo funciona el flujo
+La app queda disponible en `http://localhost:5173`.
+
+---
+
+## Estructura del backend
+
+```
+backend/
+├── main.py                          Entry point FastAPI
+├── core/
+│   ├── config.py                    Variables de entorno
+│   ├── database.py                  SQLAlchemy engine + sesión
+│   └── dependencies.py             get_db() para inyección
+├── domain/                          Lógica de negocio pura
+│   ├── catalogo/                    Entidades + servicio CRUD
+│   ├── propuesta/                   Entidades + servicio generación PPTX
+│   └── cronograma/                  Entidades + servicio generación XLSX
+├── infrastructure/
+│   ├── models/catalogo.py           Modelos SQLAlchemy (ORM)
+│   ├── repositories/
+│   │   └── catalogo_repository.py  Acceso a BD + build_catalog_data()
+│   └── generators/
+│       ├── __init__.py              Orquestador (llama los 3 generators)
+│       ├── fda_perfiles.py          Slides Perfiles y Fuera del Alcance
+│       ├── consideraciones.py       Slide Consideraciones
+│       ├── cronograma_entregables.py Slide Entregables
+│       └── cronograma_excel.py      Generación del cronograma .xlsx
+├── api/v1/
+│   ├── catalogo/                    CRUD: /api/v1/catalogo/*
+│   ├── propuesta/                   POST /api/v1/propuesta/generar
+│   └── cronograma/                  POST /api/v1/cronograma/generar
+└── templates/                       Plantillas .pptx (una por filial)
+```
+
+---
+
+## Endpoints principales
+
+| Método | URL | Descripción |
+|---|---|---|
+| GET | `/api/v1/catalogo/torres` | Listar torres |
+| POST | `/api/v1/catalogo/perfiles` | Crear perfil |
+| GET | `/api/v1/catalogo/perfiles?torre_id=1` | Perfiles de una torre |
+| POST | `/api/v1/propuesta/generar` | Generar propuesta .pptx |
+| POST | `/api/v1/cronograma/generar` | Generar cronograma .xlsx (payload: `roles[{perfil,seniority,personas,torre}]`, `actividades[{torre,horas,personas}]`) |
+
+Ver todos los endpoints en `http://localhost:8000/docs`.
+
+---
+
+## Cómo funciona la generación de propuesta
 
 El frontend parsea el Excel del cliente en tres hojas:
 
-- **RESUMEN** → nombre del cliente y lista de torres con horas
-- **Estimación** → consideraciones (col J), fuera del alcance (col K), entregables por torre (col M)
+- **RESUMEN** → proyecto, cliente, torres con horas
+- **Estimación** → consideraciones (col J), fuera del alcance (col K), entregables (col M)
 - **Anexos** → perfiles del equipo
 
-Con esos datos construye un payload que envía al servidor (`POST /generate`), el cual llama a los tres generators en cadena sobre el template PPTX de la filial elegida.
+Con esos datos construye un payload que envía al backend (`POST /api/v1/propuesta/generar`). El backend consulta la BD para obtener los datos del catálogo y llama a los tres generadores en cadena sobre la plantilla PPTX de la filial elegida.
 
-Cada sección tiene una pill en el frontend que controla si se agregan ítems genéricos del catálogo encima de los datos del Excel:
+### Pills
 
-- **Pill ON** → datos del Excel + genéricos del catálogo para complementar
-- **Pill OFF** → solo datos del Excel (o catálogo completo si el Excel no trae datos de esa sección)
+Cada sección tiene una pill que controla si se mezclan datos del catálogo (BD) con los del Excel del cliente:
 
-## Generators
+| Pill | ON | OFF |
+|---|---|---|
+| Perfiles | Excel + catálogo BD para complementar | Solo Excel (o catálogo completo si Excel vacío) |
+| Fuera del Alcance | Cláusula general | Ítems por torre del Excel o catálogo |
+| Consideraciones | Excel + catálogo BD filtrado por torre | Solo Excel |
+| Entregables | Excel + catálogo BD para torres sin datos | Solo Excel (o catálogo si Excel vacío) |
+
+---
+
+## Generadores PPTX
 
 ### `fda_perfiles.py` — Perfiles y Fuera del Alcance
-
-**Perfiles:** toma los datos del Excel (hoja Anexos), busca la descripción de cada rol en el catálogo, y pagina en slides de máximo 4 tarjetas. Si el Excel no trae perfiles, el usuario puede elegirlos manualmente desde el buscador del frontend (`GET /api/perfiles-catalog`).
-
-**Fuera del Alcance:** si la pill está ON muestra la cláusula general; si está OFF usa los ítems de col K del Excel, o el catálogo por torre si el Excel no tiene datos. Pagina automáticamente si hay más de 6 ítems.
+Pagina perfiles en slides de máximo 4 tarjetas. Centra automáticamente 1–3 perfiles. Para FDA, si hay más de 1 torre muestra la cláusula general; si hay 1 torre muestra sus ítems específicos (máx 6 por slide).
 
 ### `consideraciones.py` — Consideraciones
-
-Toma los ítems de col J del Excel de estimación (siempre los incluye). Si la pill está ON agrega además los genéricos del catálogo filtrados por torres activas. Pagina en grupos que caben en cada slide según la altura real del texto — los textos largos agrandan el grupo automáticamente. Reemplaza el nombre del cliente y la filial en el texto.
+Incluye siempre los ítems del Excel. Con pill ON agrega genéricos de la BD filtrados por torre. Los textos largos expanden el grupo automáticamente. Reemplaza el nombre del cliente y la filial en el texto.
 
 ### `cronograma_entregables.py` — Entregables
+Soporta 1–4 torres por slide (layout adaptativo). Si hay más de 4 torres duplica el slide. Con pill ON complementa con el catálogo de la BD para torres sin datos del Excel.
 
-Toma los entregables de col M del Excel de estimación agrupados por torre. Si la pill está ON complementa con el catálogo para las torres que no tengan entregables en el Excel. Si el Excel no trae ningún entregable usa el catálogo completo. Soporta hasta 4 torres por slide (1–2 centradas, 3 en posición template, 4 a escala 75%); si hay más de 4 torres duplica el slide.
+---
 
-## Catálogo genérico — `Generales_para_todos.xlsx`
+## Modelo de datos
 
-Tiene cuatro hojas: `Fuera del Alcance`, `Perfiles`, `Consideraciones`, `Entregables`. Para agregar o modificar contenido genérico edita este archivo directamente, sin tocar código.
-
-## Subir cambios
-
-```bash
-git add .
-git commit -m "descripción del cambio"
-git push
 ```
-
-> Para el push necesitas un token de GitHub (no la contraseña). Generalo en **GitHub → Settings → Developer settings → Tokens (classic)** con scope `repo`.
-
-## Inspeccionar un slide
-
-```python
-import zipfile
-from lxml import etree
-
-P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
-A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-
-with zipfile.ZipFile('templates/CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx') as z:
-    root = etree.fromstring(z.read('ppt/slides/slide7.xml'))
-    for sp in root.iter(f'{{{P}}}sp'):
-        nvpr = sp.find(f'.//{{{P}}}cNvPr')
-        name = nvpr.attrib.get('name', '') if nvpr is not None else ''
-        txb  = sp.find(f'{{{P}}}txBody')
-        if txb is not None:
-            txt = ''.join(t.text or '' for t in txb.findall(f'.//{{{A}}}t')).strip()
-            if txt:
-                print(f'[{name}]: {txt[:80]}')
+torres (1) ──< perfiles
+torres (1) ──< consideraciones   (NULL = aplica a todas)
+torres (1) ──< entregables
+torres (1) ──< fuera_del_alcance
 ```
-
-## Tests
-
-```bash
-python3 tests/test_e2e.py
-```
-
-Corre 46 casos que cubren entregables, consideraciones, perfiles, detección de slides y casos borde para las tres filiales.
