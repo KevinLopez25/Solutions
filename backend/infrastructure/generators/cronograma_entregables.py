@@ -129,8 +129,9 @@ def _find_entregables_slide(slides_order, files_dict):
         }
         if len(ENTREGABLES_LIST_SHAPES & names) >= 2:
             return path
-    print('[ENTREGABLES] Advertencia: slide no encontrado por shapes, usando índice 6.')
-    return slides_order[6]
+    fallback_idx = min(6, len(slides_order) - 1)
+    print(f'[ENTREGABLES] Advertencia: slide no encontrado por shapes, usando índice {fallback_idx}.')
+    return slides_order[fallback_idx]
 
 
 def _duplicate_slide(files_dict, src_path, insert_after_path):

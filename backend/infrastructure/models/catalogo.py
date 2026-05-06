@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -41,14 +43,14 @@ class Consideracion(Base):
     __tablename__ = "consideraciones"
 
     id:          Mapped[int]       = mapped_column(Integer, primary_key=True, autoincrement=True)
-    torre_id:    Mapped[int | None] = mapped_column(Integer, ForeignKey("torres.id", ondelete="SET NULL"), nullable=True)
+    torre_id:    Mapped[int]       = mapped_column(Integer, ForeignKey("torres.id", ondelete="SET NULL"), nullable=True)
     texto:       Mapped[str]       = mapped_column(Text, nullable=False)
     es_general:  Mapped[bool]      = mapped_column(Boolean, nullable=False, default=False)
     activa:      Mapped[bool]      = mapped_column(Boolean, nullable=False, default=True)
     orden:       Mapped[int]       = mapped_column(SmallInteger, nullable=False, default=0)
     creado_en:   Mapped[datetime]  = mapped_column(DateTime, nullable=False, server_default=func.now())
 
-    torre: Mapped["Torre | None"] = relationship(back_populates="consideraciones")
+    torre: Mapped["Torre"] = relationship(back_populates="consideraciones")
 
 
 class Entregable(Base):
