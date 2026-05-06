@@ -83,11 +83,28 @@ export default function PropuestaWizard() {
         )}
 
         {step === 2 && (
-          <TorreSelector
-            torres={excelData?.torres || torresSeleccionadas}
-            selected={torresSeleccionadas}
-            onToggle={toggleTorre}
-          />
+          <>
+            <div className="summary-cards">
+              <div className="summary-card">
+                <span className="summary-label">Torres estimadas</span>
+                <strong>{excelData?.torres?.length ?? 0}</strong>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">Horas estimadas</span>
+                <strong>{excelData?.torres?.reduce((sum, item) => sum + (item?.horas || 0), 0) ?? 0}</strong>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">Proyecto</span>
+                <strong>{excelData?.proyecto || 'No cargado'}</strong>
+              </div>
+            </div>
+
+            <TorreSelector
+              torres={excelData?.torres || torresSeleccionadas}
+              selected={torresSeleccionadas}
+              onToggle={toggleTorre}
+            />
+          </>
         )}
 
         {step === 3 && (
@@ -95,6 +112,7 @@ export default function PropuestaWizard() {
             selected={perfilesManuales}
             onAdd={addPerfil}
             onRemove={removePerfil}
+            torres={torresSeleccionadas}
           />
         )}
 

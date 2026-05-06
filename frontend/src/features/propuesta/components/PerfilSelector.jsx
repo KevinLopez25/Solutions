@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getPerfilesCatalog } from '../services/propuestaService'
 
-export default function PerfilSelector({ selected, onAdd, onRemove }) {
+export default function PerfilSelector({ selected, onAdd, onRemove, torres = [] }) {
   const [catalog, setCatalog] = useState([])
   const [query, setQuery]     = useState('')
   const [filtered, setFiltered] = useState([])
@@ -11,14 +11,26 @@ export default function PerfilSelector({ selected, onAdd, onRemove }) {
   }, [])
 
   useEffect(() => {
-    if (!query.trim()) { setFiltered([]); return }
-    const q = query.toLowerCase()
-    setFiltered(catalog.filter(p => p.rol.toLowerCase().includes(q)).slice(0, 8))
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      setFiltered(catalog.slice(0, 50))
+      return
+    }
+    setFiltered(catalog.filter(p => p.rol.toLowerCase().includes(q)).slice(0, 50))
   }, [query, catalog])
+
+  const availableCount = catalog.length
+  const towerLabel = torres.length > 0 ? `Torres: ${torres.join(', ')}` : 'Todas las torres'
 
   return (
     <div className="perfil-selector">
-      <h3>Perfiles manuales</h3>
+      <div className="profile-top">
+        <div>
+          <h3>Perfiles de la base de datos</h3>
+          <p className="profile-meta">{availableCount} perfiles disponibles · {towerLabel}</p>
+        </div>
+      </div>
+
       <input
         type="text"
         placeholder="Buscar perfil..."
@@ -26,15 +38,19 @@ export default function PerfilSelector({ selected, onAdd, onRemove }) {
         onChange={e => setQuery(e.target.value)}
         className="search-input"
       />
-      {filtered.length > 0 && (
-        <ul className="dropdown">
-          {filtered.map(p => (
-            <li key={p.id} onClick={() => { onAdd({ rol: p.rol, desc: p.descripcion }); setQuery('') }}>
-              <strong>{p.rol}</strong>
-            </li>
-          ))}
-        </ul>
-      )}
+
+      <ul className="dropdown">
+        {filtered.map(p => (
+          <li key={p.id} onClick={() => { onAdd({ rol: p.rol, desc: p.descripcion }); setQuery('') }}>
+            <strong>{p.rol}</strong>
+            <span>{p.descripcion}</span>
+          </li>
+        ))}
+        {filtered.length === 0 && (
+          <li className="dropdown-empty">No se encontraron perfiles</li>
+        )}
+      </ul>
+
       {selected.length > 0 && (
         <div className="selected-chips">
           {selected.map((p, i) => (

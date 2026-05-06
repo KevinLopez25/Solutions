@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ def generar_propuesta(request: GenerarPropuestaRequest, db: Session = Depends(ge
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {exc}")
 
 
