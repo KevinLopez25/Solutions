@@ -1,1 +1,15 @@
 *.pyc
+# Node
+node_modules/
+frontend/node_modules/
+
+# Entorno
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Builds
+dist/
+build/
