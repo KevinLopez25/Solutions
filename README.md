@@ -78,7 +78,7 @@ Instalar dependencias e iniciar:
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+python server.py
 ```
 
 La API queda disponible en `http://localhost:8000`.  
