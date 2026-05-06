@@ -723,3 +723,130 @@ section { margin-bottom: 1.75rem; }
   .step { min-width: auto; padding: 0.65rem 0.85rem; font-size: 0.75rem; }
   .filial-options, .torre-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Cronograma form ── */
+.cronograma-form {
+  background: var(--panel);
+  border: 1px solid rgba(0, 255, 118, 0.14);
+  border-radius: 32px;
+  padding: 2.5rem;
+  box-shadow: 0 30px 130px rgba(0, 255, 118, 0.08);
+  backdrop-filter: blur(20px);
+  display: grid;
+  gap: 1.5rem;
+}
+
+.cronograma-form h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #d7ffdd;
+}
+
+.form-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-top: -0.75rem;
+}
+
+.upload-zone {
+  border: 2px dashed rgba(0, 255, 118, 0.3);
+  border-radius: 20px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  background: rgba(0, 255, 118, 0.03);
+}
+
+.upload-zone:hover {
+  border-color: rgba(0, 255, 118, 0.55);
+  background: rgba(0, 255, 118, 0.06);
+}
+
+.upload-hint {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.cronograma-preview {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.preview-meta {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.preview-meta strong {
+  color: var(--text);
+}
+
+.preview-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.preview-col {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(0,255,118,0.1);
+  border-radius: 18px;
+  padding: 1.1rem 1.25rem;
+}
+
+.preview-col h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.preview-col ul {
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.preview-col li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.preview-chip {
+  background: rgba(0, 255, 118, 0.1);
+  color: #b7ffbe;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.preview-hours {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.preview-torre {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  white-space: nowrap;
+}
