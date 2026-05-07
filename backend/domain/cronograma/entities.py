@@ -10,7 +10,7 @@ class RolCronograma(BaseModel):
 
 class ActividadCronograma(BaseModel):
     torre: str
-    horas: int
+    horas: float
     personas: int = 1
 
 
