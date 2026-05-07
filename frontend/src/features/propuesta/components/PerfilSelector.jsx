@@ -5,6 +5,7 @@ export default function PerfilSelector({ selected, onAdd, onRemove, torres = [] 
   const [catalog, setCatalog] = useState([])
   const [query, setQuery]     = useState('')
   const [filtered, setFiltered] = useState([])
+  const [open, setOpen]       = useState(false)
 
   useEffect(() => {
     getPerfilesCatalog().then(setCatalog).catch(console.error)
@@ -12,55 +13,52 @@ export default function PerfilSelector({ selected, onAdd, onRemove, torres = [] 
 
   useEffect(() => {
     const q = query.trim().toLowerCase()
-    if (!q) {
-      setFiltered(catalog.slice(0, 50))
-      return
-    }
-    setFiltered(catalog.filter(p => p.rol.toLowerCase().includes(q)).slice(0, 50))
+    if (!q) { setFiltered([]); setOpen(false); return }
+    const results = catalog.filter(p => p.rol.toLowerCase().includes(q)).slice(0, 50)
+    setFiltered(results)
+    setOpen(results.length > 0)
   }, [query, catalog])
 
-  const availableCount = catalog.length
-  const towerLabel = torres.length > 0 ? `Torres: ${torres.join(', ')}` : 'Todas las torres'
+  function pick(p) {
+    onAdd({ rol: p.rol, desc: p.descripcion })
+    setQuery('')
+    setOpen(false)
+  }
 
   return (
     <div className="perfil-selector">
-      <div className="profile-top">
-        <div>
-          <h3>Perfiles de la base de datos</h3>
-          <p className="profile-meta">{availableCount} perfiles disponibles · {towerLabel}</p>
+      <p className="perfil-count">
+        {catalog.length} perfiles disponibles
+        {torres.length > 0 ? ` · Torres: ${torres.slice(0, 3).join(', ')}${torres.length > 3 ? '…' : ''}` : ''}
+      </p>
+
+      <div className="perfil-search-wrap">
+        <input
+          type="text"
+          className="perfil-search-input"
+          placeholder="Buscar perfil en el catálogo..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onFocus={() => filtered.length > 0 && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          autoComplete="off"
+        />
+        <div className={`perfil-results-dropdown${open ? ' open' : ''}`}>
+          {filtered.map(p => (
+            <div key={p.id} className="perfil-result-item" onMouseDown={() => pick(p)}>
+              <strong>{p.rol}</strong>
+              <small>{p.descripcion}</small>
+            </div>
+          ))}
         </div>
       </div>
 
-      <input
-        type="text"
-        placeholder="Buscar perfil..."
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        className="search-input"
-      />
-
-      <ul className="dropdown">
-        {filtered.map(p => (
-          <li key={p.id} onClick={() => { onAdd({ rol: p.rol, desc: p.descripcion }); setQuery('') }}>
-            <strong>{p.rol}</strong>
-            <span>{p.descripcion}</span>
-          </li>
-        ))}
-        {filtered.length === 0 && (
-          <li className="dropdown-empty">No se encontraron perfiles</li>
-        )}
-      </ul>
-
-      {selected.length > 0 && (
-        <div className="selected-chips">
-          {selected.map((p, i) => (
-            <span key={i} className="chip">
-              {p.rol}
-              <button onClick={() => onRemove(i)}>&times;</button>
-            </span>
-          ))}
+      {selected.map((p, i) => (
+        <div key={i} className="perfil-chip">
+          <span className="perfil-chip-rol">{p.rol}</span>
+          <button className="perfil-chip-rm" onClick={() => onRemove(i)}>&times;</button>
         </div>
-      )}
+      ))}
     </div>
   )
 }
