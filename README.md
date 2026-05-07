@@ -98,7 +98,7 @@ La app queda disponible en `http://localhost:5173`.
 
 ### Diseño visual
 
-Réplica fiel del diseño original de Periferia IT: fuentes **Syne** (títulos) + **Figtree** (cuerpo), paleta verde oscuro (`#00E676` / `#040906`), animación de fondo con orbs y partículas, robots decorativos CSS 3D en las esquinas.
+Fuentes **Syne** (títulos) + **Figtree** (cuerpo), paleta verde oscuro (`#00E676` / `#040906`), animación de fondo con orbs y partículas, robots decorativos CSS 3D en las esquinas.
 
 ### Flujo del wizard (6 pasos)
 
