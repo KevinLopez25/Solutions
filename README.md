@@ -1,4 +1,4 @@
-# Generador de Propuestas Comerciales — Periferia IT
+# Generador de Propuestas Comerciales 
 
 Genera presentaciones PowerPoint (.pptx) de propuestas comerciales y cronogramas (.xlsx) a partir del Excel de estimación del proyecto.
 
@@ -95,6 +95,28 @@ npm run dev
 ```
 
 La app queda disponible en `http://localhost:5173`.
+
+### Diseño visual
+
+Réplica fiel del diseño original de Periferia IT: fuentes **Syne** (títulos) + **Figtree** (cuerpo), paleta verde oscuro (`#00E676` / `#040906`), animación de fondo con orbs y partículas, robots decorativos CSS 3D en las esquinas.
+
+### Flujo del wizard (6 pasos)
+
+| Paso | Pantalla |
+|---|---|
+| 0 | **Modo** — elige Propuesta PPT o Cronograma |
+| 1 | **Excel** — sube el archivo de estimación |
+| 2 | **Torres / Perfiles** — revisa datos del Excel o selecciona torres manualmente + modo de perfiles (Catálogo completo / Elegir perfiles) |
+| 3 | **Filial** — corp / group / cbit |
+| 4 | **Secciones** — pills para activar genéricos |
+| 5 | **Resumen** — confirma y genera el documento |
+
+### Componentes nuevos
+
+| Archivo | Descripción |
+|---|---|
+| `src/components/BgCanvas.jsx` | Canvas animado: orbs, partículas y grilla verde |
+| `src/components/Bot3D.jsx` | Robots decorativos CSS 3D (grande izquierda + pequeño derecha) |
 
 ---
 
