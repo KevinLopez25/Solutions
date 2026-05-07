@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     DB_PORT: int = 3306
     DB_NAME: str = "solutions_db"
     DB_USER: str = "root"
-    DB_PASSWORD: str = "K3v1nL0p32"
+    DB_PASSWORD: str = ""
 
     TEMPLATES_DIR: str = "templates"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
