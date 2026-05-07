@@ -229,7 +229,7 @@ function parseAnexos(wb) {
     .map(r => ({
       perfil:    String(r[1]).trim(),
       seniority: String(r[2] || '').trim(),
-      personas:  1,
+      personas:  Math.max(1, Math.round(parseNumber(r[3]) || 1)),
       torre:     String(r[0] || '').trim(),
     }))
 }
