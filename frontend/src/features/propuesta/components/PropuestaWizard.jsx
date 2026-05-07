@@ -36,8 +36,50 @@ export default function PropuestaWizard() {
   function back() { setStep(s => Math.max(s - 1, 0)) }
 
   function handleExcelParsed(data) {
-    setExcelData(data)
-    if (data.torres?.length) setTorres(data.torres.map(t => t.nombre))
+    if (!data) return
+    try {
+      // Sanitizar los datos del Excel
+      const sanitized = {
+        cliente:         String(data.cliente || '').trim(),
+        proyecto:        String(data.proyecto || '').trim(),
+        filename:        String(data.filename || '').trim(),
+        torres:          (Array.isArray(data.torres) ? data.torres : [])
+          .filter(t => t && typeof t === 'object')
+          .map(t => ({
+            nombre:   String(t.nombre || '').trim(),
+            horas:    Math.round(Number(t.horas) || 0),
+            personas: Math.max(1, Math.round(Number(t.personas) || 1)),
+          }))
+          .filter(t => t.nombre.length > 0),
+        perfiles:        (Array.isArray(data.perfiles) ? data.perfiles : [])
+          .filter(p => p && typeof p === 'object')
+          .map(p => ({
+            torre:     String(p.torre || '').trim(),
+            perfil:    String(p.perfil || '').trim(),
+            seniority: String(p.seniority || '').trim(),
+            personas:  Number(p.personas) || 1,
+          }))
+          .filter(p => p.perfil.length > 0),
+        consideraciones: (Array.isArray(data.consideraciones) ? data.consideraciones : [])
+          .map(c => String(c).trim())
+          .filter(c => c.length > 0),
+        fda:             (Array.isArray(data.fda) ? data.fda : [])
+          .map(f => String(f).trim())
+          .filter(f => f.length > 0),
+        entregables:     (Array.isArray(data.entregables) ? data.entregables : [])
+          .map(e => ({
+            torre: String(e.torre || '').trim(),
+            items: (Array.isArray(e.items) ? e.items : [])
+              .map(i => String(i).trim())
+              .filter(i => i.length > 0),
+          }))
+          .filter(e => e.torre.length > 0 && e.items.length > 0),
+      }
+      setExcelData(sanitized)
+      if (sanitized.torres?.length) setTorres(sanitized.torres.map(t => t.nombre))
+    } catch (err) {
+      console.error('Error sanitizing Excel data:', err)
+    }
   }
 
   function toggleTorre(nombre) {
