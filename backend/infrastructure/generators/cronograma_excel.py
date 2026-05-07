@@ -86,10 +86,14 @@ def generate_cronograma(config: dict) -> bytes:
     n_hdr = 1 + n_hdr_sin_roles                 # +1 for roles row
 
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Cronograma"
-    ws.sheet_view.showGridLines = False
-    _configurar_dimensiones(ws, total_semanas, n_hdr, sin_semanas)
+    ws1 = wb.active
+    ws1.title = "Cronograma"
+    ws1.sheet_view.showGridLines = False
+    _configurar_dimensiones(ws1, total_semanas, n_hdr, sin_semanas)
+
+    ws2 = wb.create_sheet(title="Cronograma sin semanas")
+    ws2.sheet_view.showGridLines = False
+    _configurar_dimensiones(ws2, total_semanas, 3, True)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -121,48 +125,64 @@ def _configurar_dimensiones(ws, total_semanas, n_hdr, sin_semanas):
 def _inyectar_drawing(xlsx_bytes, actividades, roles,
                       total_semanas, sin_semanas, n_hdr):
 
-    drawing_xml = _build_drawing_xml(actividades, roles,
-                                     total_semanas, sin_semanas, n_hdr)
+    drawing1_xml = _build_drawing_xml(actividades, roles,
+                                      total_semanas, sin_semanas, n_hdr)
+    drawing2_xml = _build_drawing_xml(actividades, roles,
+                                      total_semanas, True, 3)
 
     with zipfile.ZipFile(io.BytesIO(xlsx_bytes), "r") as zin:
         files = {n: zin.read(n) for n in zin.namelist()}
 
-    files["xl/drawings/drawing1.xml"] = drawing_xml.encode("utf-8")
+    files["xl/drawings/drawing1.xml"] = drawing1_xml.encode("utf-8")
+    files["xl/drawings/drawing2.xml"] = drawing2_xml.encode("utf-8")
 
-    rel_path = "xl/worksheets/_rels/sheet1.xml.rels"
-    if rel_path not in files:
-        files[rel_path] = (
-            b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            b'<Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"'
-            b' Target="../drawings/drawing1.xml"/></Relationships>'
-        )
-    else:
-        rel = files[rel_path].decode("utf-8")
-        if "drawing1.xml" not in rel:
-            rel = rel.replace("</Relationships>",
-                              '<Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>')
-            files[rel_path] = rel.encode("utf-8")
-
-    sheet = files["xl/worksheets/sheet1.xml"].decode("utf-8")
-    if "<drawing " not in sheet:
-        if "xmlns:r=" not in sheet:
-            sheet = sheet.replace("<worksheet ",
-                '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ', 1)
-        sheet = sheet.replace("</worksheet>", '<drawing r:id="rId10"/></worksheet>')
-        files["xl/worksheets/sheet1.xml"] = sheet.encode("utf-8")
-
-    ct = files["[Content_Types].xml"].decode("utf-8")
-    if "drawing1.xml" not in ct:
-        ct = ct.replace("</Types>",
-            '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>')
-        files["[Content_Types].xml"] = ct.encode("utf-8")
+    _ensure_sheet_drawing(files, "sheet1.xml", "drawing1.xml")
+    _ensure_sheet_drawing(files, "sheet2.xml", "drawing2.xml")
+    _ensure_content_type(files, "drawing1.xml")
+    _ensure_content_type(files, "drawing2.xml")
 
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         for name, data in files.items():
             zout.writestr(name, data)
     return out.getvalue()
+
+
+def _ensure_sheet_drawing(files, sheet_name, drawing_name):
+    rel_path = f"xl/worksheets/_rels/{sheet_name}.rels"
+    drawing_rid = "rId10"
+    relationship = (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + f'<Relationship Id="{drawing_rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/{drawing_name}"/>'.encode("utf-8")
+        + b'</Relationships>'
+    )
+
+    if rel_path not in files:
+        files[rel_path] = relationship
+    else:
+        rel = files[rel_path].decode("utf-8")
+        if drawing_name not in rel:
+            rel = rel.replace("</Relationships>",
+                              f'<Relationship Id="{drawing_rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/{drawing_name}"/></Relationships>')
+            files[rel_path] = rel.encode("utf-8")
+
+    sheet_path = f"xl/worksheets/{sheet_name}"
+    sheet = files[sheet_path].decode("utf-8")
+    if "<drawing " not in sheet:
+        if "xmlns:r=" not in sheet:
+            sheet = sheet.replace("<worksheet ",
+                '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ', 1)
+        sheet = sheet.replace("</worksheet>", f'<drawing r:id="{drawing_rid}"/></worksheet>')
+        files[sheet_path] = sheet.encode("utf-8")
+
+
+def _ensure_content_type(files, drawing_name):
+    ct = files["[Content_Types].xml"].decode("utf-8")
+    override = f'<Override PartName="/xl/drawings/{drawing_name}" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+    if override not in ct:
+        ct = ct.replace("</Types>", f'{override}</Types>')
+        files["[Content_Types].xml"] = ct.encode("utf-8")
 
 # ─── Drawing XML principal ───────────────────────────────────────────────────
 def _build_drawing_xml(actividades, roles, total_semanas, sin_semanas, n_hdr):
