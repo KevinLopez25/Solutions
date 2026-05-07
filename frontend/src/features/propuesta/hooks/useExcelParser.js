@@ -33,7 +33,7 @@ function parseResumen(wb) {
   const cliente  = rows.find(r => r[0] === 'Cliente')?.[1]  || ''
   const torres   = rows
     .filter(r => r[0] && typeof r[0] === 'string' && r[0].startsWith('Torre'))
-    .map(r => ({ nombre: String(r[0]).replace('Torre', '').trim(), horas: Number(r[1]) || 0 }))
+    .map(r => ({ nombre: String(r[0]).replace('Torre', '').trim(), horas: Math.round(Number(r[1]) || 0) }))
   return { proyecto, cliente, torres }
 }
 

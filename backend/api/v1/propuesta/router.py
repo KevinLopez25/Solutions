@@ -15,10 +15,12 @@ def generar_propuesta(request: GenerarPropuestaRequest, db: Session = Depends(ge
     try:
         return service.generar_propuesta(db, request)
     except (ValueError, FileNotFoundError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        error_msg = str(exc).strip() or "Error de validación"
+        raise HTTPException(status_code=400, detail=error_msg)
     except Exception as exc:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {exc}")
+        error_msg = str(exc).strip() or "Error interno del servidor"
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/filiales")

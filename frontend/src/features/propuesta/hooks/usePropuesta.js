@@ -29,26 +29,62 @@ export function usePropuesta() {
     setError(null)
     try {
       const actividades = (excelData?.torres || [])
-        .filter(t => t.horas > 0)
+        .filter(t => t && typeof t === 'object' && Number(t.horas) > 0)
         .map(t => ({
-          torre:     t.nombre,
-          actividad: t.nombre,
-          horas:     t.horas,
-          personas:  t.personas || 1,
+          torre:     String(t.nombre || '').trim(),
+          actividad: String(t.nombre || '').trim(),
+          horas:     Math.round(Number(t.horas) || 0),
+          personas:  Math.max(1, Math.round(Number(t.personas) || 1)),
         }))
 
       const roles = (excelData?.perfiles || [])
-        .filter(p => p.perfil && p.perfil.trim() !== '')
+        .filter(p => p && typeof p === 'object' && p.perfil && String(p.perfil).trim() !== '')
+        .map(p => ({
+          torre:     String(p.torre || '').trim(),
+          perfil:    String(p.perfil || '').trim(),
+          seniority: String(p.seniority || '').trim(),
+          personas:  Math.max(1, Math.round(Number(p.personas) || 1)),
+        }))
+
+      // Construir un objeto limpio solo con datos necesarios
+      const cleanExcelData = {
+        cliente:         String(excelData?.cliente || '').trim(),
+        proyecto:        String(excelData?.proyecto || '').trim(),
+        torres:          (excelData?.torres || []).map(t => ({
+          nombre:        String(t.nombre || '').trim(),
+          horas:         Math.round(Number(t.horas) || 0),
+          personas:      Math.max(1, Math.round(Number(t.personas) || 1)),
+        })),
+        consideraciones: (excelData?.consideraciones || []).map(c => String(c).trim()).filter(c => c.length > 0).slice(0, 20),
+        fda:             (excelData?.fda || []).map(f => String(f).trim()).filter(f => f.length > 0).slice(0, 20),
+        entregables:     (excelData?.entregables || []).map(e => ({
+          torre: String(e.torre || '').trim(),
+          items: (e.items || []).map(i => String(i).trim()).filter(i => i.length > 0).slice(0, 10)
+        })).slice(0, 10),
+        filename:        String(excelData?.filename || '').trim(),
+      }
 
       const payload = {
         filial,
-        excel_data:           excelData || {},
-        torres_seleccionadas: torresSeleccionadas,
+        excel_data:           cleanExcelData,
+        torres_seleccionadas: torresSeleccionadas.filter(t => String(t).trim().length > 0),
         opciones,
-        perfiles_manuales:    efectivosManuales !== undefined ? efectivosManuales : perfilesManuales,
-        incluir_qa:           incluirQa,
-        actividades,
-        roles,
+        perfiles_manuales:    (efectivosManuales !== undefined ? efectivosManuales : perfilesManuales)
+          .filter(p => p && typeof p === 'object' && p.rol)
+          .map(p => ({
+            rol:  String(p.rol || '').trim(),
+            desc: String(p.desc || '').trim(),
+          }))
+          .slice(0, 50),
+        incluir_qa:           Boolean(incluirQa),
+        actividades:          actividades.slice(0, 100),
+        roles:                roles.slice(0, 100),
+      }
+
+      // Validar que el payload sea serializable
+      const testJSON = JSON.stringify(payload)
+      if (testJSON.length > 1000000) { // 1MB max
+        throw new Error('Los datos del Excel son demasiado extensos. Intenta con un archivo más pequeño.')
       }
 
       const result = await generarPropuesta(payload)
@@ -58,7 +94,8 @@ export function usePropuesta() {
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       )
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Error al generar la propuesta')
+      console.error('Generate error:', err)
     } finally {
       setLoading(false)
     }

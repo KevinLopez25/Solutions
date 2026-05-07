@@ -3,8 +3,24 @@ import { TORRE_ICONS } from '../../../core/constants'
 export default function TorreSelector({ torres, selected, onToggle, showHours = false }) {
   if (!torres || torres.length === 0) return null
 
+  // Sanitize torres array to ensure all items are valid
+  const sanitizedTorres = torres.map(t => {
+    if (typeof t === 'string') {
+      return { nombre: t, horas: null }
+    }
+    if (typeof t === 'object' && t !== null && typeof t.nombre === 'string') {
+      return {
+        nombre: String(t.nombre).trim(),
+        horas: typeof t.horas === 'number' ? t.horas : null
+      }
+    }
+    return null
+  }).filter(t => t !== null && t.nombre.length > 0)
+
+  if (sanitizedTorres.length === 0) return null
+
   if (showHours) {
-    const maxHrs = Math.max(...torres.map(t => t.horas || 0), 1)
+    const maxHrs = Math.max(...sanitizedTorres.map(t => t.horas || 0), 1)
     return (
       <div className="xdetail-card" style={{ marginTop: '14px' }}>
         <div className="xdetail-head">
@@ -14,9 +30,9 @@ export default function TorreSelector({ torres, selected, onToggle, showHours = 
           </span>
         </div>
         <div className="xdetail-body">
-          {torres.map((t) => {
-            const nombre    = typeof t === 'string' ? t : t.nombre
-            const horas     = typeof t === 'object' ? t.horas : null
+          {sanitizedTorres.map((t) => {
+            const nombre    = t.nombre
+            const horas     = t.horas
             const isSelected = selected.includes(nombre)
             const icon      = TORRE_ICONS[nombre] || '🏗️'
             const pct       = horas ? Math.round((horas / maxHrs) * 100) : 0
@@ -53,8 +69,8 @@ export default function TorreSelector({ torres, selected, onToggle, showHours = 
 
   return (
     <div className="torre-chips-row">
-      {torres.map((t) => {
-        const nombre    = typeof t === 'string' ? t : t.nombre
+      {sanitizedTorres.map((t) => {
+        const nombre    = t.nombre
         const isSelected = selected.includes(nombre)
         const icon      = TORRE_ICONS[nombre] || '🏗️'
         return (

@@ -100,8 +100,8 @@ function parseResumen(wb) {
     if (row[1] === 'DETALLE FULL STACK' && row[2] === 'HORAS') { inDetalle = true; continue }
     if (!inDetalle) continue
     if (row[1] === 'TOTALES FULL STACK') { inDetalle = false; continue }
-    const h = typeof row[2] === 'number' ? row[2] : (parseFloat(row[2]) || 0)
-    const p = typeof row[3] === 'number' ? row[3] : (parseFloat(row[3]) || 0)
+    const h = Math.round(typeof row[2] === 'number' ? row[2] : (parseFloat(String(row[2]) || '0') || 0))
+    const p = Math.round(typeof row[3] === 'number' ? row[3] : (parseFloat(String(row[3]) || '0') || 0))
     if (h > 0) { fsHorasFallback += h; fsPersonasFallback = Math.max(fsPersonasFallback, p) }
   }
 
@@ -118,19 +118,23 @@ function parseResumen(wb) {
     const nombre = TORRE_RESUMEN_MAP[rawNombre]
       || rawNombre.replace(/^Torre\s+/i, '').toUpperCase()
 
-    let horas = typeof row[2] === 'number' ? row[2] : (parseFloat(row[2]) || 0)
+    let horas = Math.round(typeof row[2] === 'number' ? row[2] : (parseFloat(String(row[2]) || '0') || 0))
     if (horas === 0 && nombre === 'FULLSTACK / DESARROLLO' && fsHorasFallback > 0)
       horas = fsHorasFallback
 
-    const personasRaw = typeof row[3] === 'number' ? row[3] : (parseFloat(row[3]) || 1)
+    const personasRaw = Math.round(typeof row[3] === 'number' ? row[3] : (parseFloat(String(row[3]) || '1') || 1))
     let personas = personasRaw
     if (horas === 0 && nombre === 'FULLSTACK / DESARROLLO' && fsPersonasFallback > 0)
       personas = fsPersonasFallback
 
-    if (horas > 0) torres.push({ nombre, horas, personas: Math.max(1, personas) })
+    if (horas > 0) torres.push({ 
+      nombre: String(nombre).trim(), 
+      horas: Number(horas), 
+      personas: Math.max(1, Number(personas)) 
+    })
   }
 
-  return { cliente, torres }
+  return { cliente: String(cliente).trim(), torres }
 }
 
 function parseEstimacion(wb) {
@@ -148,49 +152,73 @@ function parseEstimacion(wb) {
     if (row[0] === 'PROYECTO:' && row[1]) proyecto = String(row[1]).trim()
 
     const cellJ = row[9]
-    if (cellJ) {
-      const texto = String(cellJ).trim()
-      if (texto && texto !== 'Consideraciones' && texto !== 'Adicionales') {
-        const lineas = texto.split('\n')
-          .map(l => l.trim()).filter(l => l.length > 0)
-          .filter(l => !/^(Riesgos|Consideraciones|Adicionales)\s*:?\s*$/i.test(l))
-          .map(l => l.replace(/^\d+[\.\-]\s*/, '').trim())
-          .filter(l => l.length > 10)
-        for (const linea of lineas) { if (!cons.includes(linea)) cons.push(linea) }
+    if (cellJ != null && cellJ !== '' && cellJ !== undefined) {
+      try {
+        const texto = String(cellJ).trim()
+        if (texto && texto !== 'Consideraciones' && texto !== 'Adicionales') {
+          const lineas = texto.split('\n')
+            .map(l => String(l).trim()).filter(l => l.length > 0)
+            .filter(l => !/^(Riesgos|Consideraciones|Adicionales)\s*:?\s*$/i.test(l))
+            .map(l => String(l).replace(/^\d+[\.\-]\s*/, '').trim())
+            .filter(l => l.length > 10)
+          for (const linea of lineas) { 
+            const strLinea = String(linea).trim()
+            if (strLinea && !cons.includes(strLinea)) cons.push(strLinea) 
+          }
+        }
+      } catch (e) {
+        console.warn('Error parsing cell J:', e)
       }
     }
 
     const cellK = row[10]
-    if (cellK) {
-      const texto = String(cellK).trim()
-      if (texto && !/^(Fuera del Alcance|FDA)\s*:?\s*$/i.test(texto)) {
-        const partes = texto.split('.').map(p => p.trim()).filter(p => p.length > 5)
-        for (const parte of partes) {
-          const item = parte.endsWith('.') ? parte : parte + '.'
-          if (!fdaItems.includes(item)) fdaItems.push(item)
+    if (cellK != null && cellK !== '' && cellK !== undefined) {
+      try {
+        const texto = String(cellK).trim()
+        if (texto && !/^(Fuera del Alcance|FDA)\s*:?\s*$/i.test(texto)) {
+          const partes = texto.split('.').map(p => String(p).trim()).filter(p => p.length > 5)
+          for (const parte of partes) {
+            const item = parte.endsWith('.') ? String(parte) : String(parte) + '.'
+            if (!fdaItems.includes(item)) fdaItems.push(item)
+          }
         }
+      } catch (e) {
+        console.warn('Error parsing cell K:', e)
       }
     }
 
     const cellM = row[12]
-    if (cellM != null) {
-      const textoM = String(cellM).trim()
-      if (/^Entregables?\s+por\s+torre\s*$/i.test(textoM)) {
-        const cellA = row[0] != null ? String(row[0]).trim() : ''
-        const m = cellA.match(/TORRE\s+(.+?)\s*[-–]/i)
-        if (m) {
-          const rawTorre = m[1].trim()
-          currTorreEnt = TORRE_RESUMEN_MAP['Torre ' + rawTorre] || rawTorre.toUpperCase()
+    if (cellM != null && cellM !== '' && cellM !== undefined) {
+      try {
+        const textoM = String(cellM).trim()
+        if (/^Entregables?\s+por\s+torre\s*$/i.test(textoM)) {
+          const cellA = row[0] != null ? String(row[0]).trim() : ''
+          const m = cellA.match(/TORRE\s+(.+?)\s*[-–]/i)
+          if (m) {
+            const rawTorre = m[1].trim()
+            currTorreEnt = TORRE_RESUMEN_MAP['Torre ' + rawTorre] || rawTorre.toUpperCase()
+          }
+        } else if (currTorreEnt && textoM.length > 3) {
+          if (!entMap[currTorreEnt]) entMap[currTorreEnt] = []
+          const strTextoM = String(textoM).trim()
+          if (strTextoM && !entMap[currTorreEnt].includes(strTextoM)) entMap[currTorreEnt].push(strTextoM)
         }
-      } else if (currTorreEnt && textoM.length > 3) {
-        if (!entMap[currTorreEnt]) entMap[currTorreEnt] = []
-        if (!entMap[currTorreEnt].includes(textoM)) entMap[currTorreEnt].push(textoM)
+      } catch (e) {
+        console.warn('Error parsing cell M:', e)
       }
     }
   }
 
-  const entregables = Object.entries(entMap).map(([torre, items]) => ({ torre, items }))
-  return { proyecto, consideraciones: cons, fda: fdaItems, entregables }
+  const entregables = Object.entries(entMap).map(([torre, items]) => ({ 
+    torre: String(torre).trim(), 
+    items: items.map(i => String(i).trim()).filter(i => i.length > 0)
+  }))
+  return { 
+    proyecto: String(proyecto).trim(), 
+    consideraciones: cons.map(c => String(c).trim()).filter(c => c.length > 0), 
+    fda: fdaItems.map(f => String(f).trim()).filter(f => f.length > 0), 
+    entregables 
+  }
 }
 
 function parseAnexos(wb) {
@@ -203,10 +231,18 @@ function parseAnexos(wb) {
       return cell0 && cell0 !== 'TORRE' && cell0 !== 'TOTALES PROYECTO' && cell0 !== 'DIAGRAMAS'
     })
     .filter(r => r[1] != null && String(r[1]).trim() !== '')
-    .map(r => ({
-      torre:     String(r[0]).trim().replace(/^Torre\s+/i, '').replace(/^TORRE\s+/i, ''),
-      perfil:    String(r[1]).trim(),
-      seniority: r[2] != null ? String(r[2]).trim() : '',
-      personas:  typeof r[3] === 'number' ? Math.max(1, r[3]) : 1,
-    }))
+    .map(r => {
+      try {
+        return {
+          torre:     String(r[0] ?? '').trim().replace(/^Torre\s+/i, '').replace(/^TORRE\s+/i, ''),
+          perfil:    String(r[1] ?? '').trim(),
+          seniority: String(r[2] ?? '').trim(),
+          personas:  typeof r[3] === 'number' ? Math.max(1, r[3]) : (parseFloat(String(r[3]) || '1') || 1),
+        }
+      } catch (e) {
+        console.warn('Error parsing anexo row:', r, e)
+        return null
+      }
+    })
+    .filter(item => item !== null && item.perfil.length > 0)
 }
