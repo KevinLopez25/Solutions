@@ -11,7 +11,7 @@ const STEPS     = ['Modo', 'Excel', 'Torres', 'Filial', 'Secciones', 'Resumen']
 const PROG_TEXT = ['Elige el tipo', 'Sube el Excel', 'Revisa los datos', 'Elige la filial', 'Configura secciones', 'Genera el documento']
 const TOTAL     = STEPS.length - 1
 
-export default function PropuestaWizard() {
+export default function PropuestaWizard({ onDraftGenerated, proposalDraft, reviewRequested, onOpenChat }) {
   const navigate = useNavigate()
   const [step, setStep]               = useState(0)
   const [modoPerfiles, setModoPerfiles] = useState('catalogo')
@@ -27,6 +27,7 @@ export default function PropuestaWizard() {
     incluirQa, setIncluirQa,
     loading, error,
     generate,
+    downloadProposal,
   } = usePropuesta()
 
   const excelVacio = !excelData || (excelData.torres?.length ?? 0) === 0
@@ -94,9 +95,18 @@ export default function PropuestaWizard() {
     setManualDesc('')
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
-    generate(efectivos)
+    const draft = await generate(efectivos)
+    if (onDraftGenerated) {
+      onDraftGenerated(draft)
+    }
+  }
+
+  function handleDownload() {
+    if (proposalDraft) {
+      downloadProposal(proposalDraft)
+    }
   }
 
   const pct = (step / TOTAL) * 100
@@ -455,6 +465,29 @@ export default function PropuestaWizard() {
               </div>
             )}
 
+            {proposalDraft && (
+              <div className="review-block">
+                <div className="review-title">Propuesta generada</div>
+                <div className="review-text">La propuesta está lista. Antes de descargarla, revisa en el chat con IA y solicita los cambios que quieras.</div>
+                <div className="review-actions">
+                  <button className="btn-secondary" type="button" onClick={onOpenChat}>
+                    Abrir chat para revisión
+                  </button>
+                  <button
+                    className="btn-gen"
+                    type="button"
+                    disabled={!reviewRequested || loading}
+                    onClick={handleDownload}
+                  >
+                    {reviewRequested ? '⬇ Descargar propuesta' : '🔍 Revisión IA requerida'}
+                  </button>
+                </div>
+                {!reviewRequested && (
+                  <div className="review-note">Solicita la revisión en el chat antes de descargar la propuesta.</div>
+                )}
+              </div>
+            )}
+
             {error && <p className="err-txt">{error}</p>}
 
             <div className="gen-block">
@@ -462,7 +495,7 @@ export default function PropuestaWizard() {
               <div className="gen-t">Todo listo</div>
               <div className="gen-s">El documento se generará con los datos del Excel más los genéricos seleccionados.</div>
               <button className="btn-gen" onClick={handleGenerate} disabled={loading}>
-                {loading ? '⏳ Generando...' : '⬇ Generar documento'}
+                {loading ? '⏳ Generando...' : proposalDraft ? '⬇ Regenerar propuesta' : '⬇ Generar documento'}
               </button>
             </div>
           </div>
