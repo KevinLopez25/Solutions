@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import PropuestaWizard from './features/propuesta/components/PropuestaWizard'
 import CronogramaForm from './features/cronograma/components/CronogramaForm'
 import BgCanvas from './components/BgCanvas'
 import Bot3D from './components/Bot3D'
+import AgentChat from './components/AgentChat'
 import './assets/styles/global.css'
 
 function CronogramaPage() {
@@ -20,10 +22,13 @@ function CronogramaPage() {
 }
 
 export default function App() {
+  const [chatOpen, setChatOpen] = useState(false)
+
   return (
     <BrowserRouter>
       <BgCanvas />
-      <Bot3D />
+      <Bot3D onToggle={() => setChatOpen(v => !v)} isActive={chatOpen} />
+      <AgentChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       <Routes>
         <Route path="/" element={<PropuestaWizard />} />
         <Route path="/cronograma" element={<CronogramaPage />} />

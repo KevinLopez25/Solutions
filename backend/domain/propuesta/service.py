@@ -2,6 +2,7 @@
 Servicio de dominio: orquesta la generación de propuestas PPTX.
 """
 import base64
+import logging
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from core.config import settings
 from domain.propuesta.entities import GenerarPropuestaRequest, GenerarPropuestaResponse
 from infrastructure import generators as orchestrator
 from infrastructure.repositories.catalogo_repository import build_catalog_data
+
+log = logging.getLogger(__name__)
 
 FILIALES = {
     "corp":  "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx",

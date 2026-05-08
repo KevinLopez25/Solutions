@@ -1,4 +1,4 @@
-export default function Bot3D() {
+export default function Bot3D({ onToggle, isActive = false }) {
   return (
     <>
       {/* Robot grande — lado izquierdo, detrás del contenido */}
@@ -39,8 +39,14 @@ export default function Bot3D() {
         </div>
       </div>
 
-      {/* Robot pequeño — esquina inferior derecha */}
-      <div className="bot3d" aria-hidden="true">
+      {/* Robot pequeño — esquina inferior derecha, abre el chat */}
+      <div
+        className={`bot3d bot3d-chat${isActive ? ' bot3d-chat-active' : ''}`}
+        onClick={onToggle}
+        role="button"
+        aria-label="Abrir asistente"
+        title="Asistente Periferia"
+      >
         <div className="bwrap">
           <div className="orb" />
           <div className="propeller" />
@@ -53,6 +59,7 @@ export default function Bot3D() {
             <div className="mouth" />
           </div>
           <div className="ring" />
+          {isActive && <div className="bot-active-dot" />}
         </div>
       </div>
     </>

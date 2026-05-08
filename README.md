@@ -64,7 +64,7 @@ cd backend
 copy .env.example .env
 ```
 
-Editar `.env` con las credenciales de MySQL:
+Editar `.env` con las credenciales de MySQL y la API key de Groq:
 
 ```env
 DB_HOST=localhost
@@ -72,7 +72,11 @@ DB_PORT=3306
 DB_NAME=solutions_db
 DB_USER=root
 DB_PASSWORD=tu_password
+
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+> La `GROQ_API_KEY` es necesaria para el agente conversacional (chatbot Peri). Se obtiene en [console.groq.com](https://console.groq.com) → API Keys → Create API Key. Sin esta key el chatbot no funciona pero el resto de la app sí.
 
 Instalar dependencias e iniciar:
 
@@ -116,7 +120,9 @@ Fuentes **Syne** (títulos) + **Figtree** (cuerpo), paleta verde oscuro (`#00E67
 | Archivo | Descripción |
 |---|---|
 | `src/components/BgCanvas.jsx` | Canvas animado: orbs, partículas y grilla verde |
-| `src/components/Bot3D.jsx` | Robots decorativos CSS 3D (grande izquierda + pequeño derecha) |
+| `src/components/Bot3D.jsx` | Robot 3D en esquina inferior derecha — clic abre/cierra el chatbot |
+| `src/components/AgentChat.jsx` | Panel de chat flotante con el agente Peri |
+| `src/features/chat/services/chatService.js` | Llamadas a los endpoints del agente IA |
 
 ---
 
@@ -126,13 +132,17 @@ Fuentes **Syne** (títulos) + **Figtree** (cuerpo), paleta verde oscuro (`#00E67
 backend/
 ├── main.py                          Entry point FastAPI
 ├── core/
-│   ├── config.py                    Variables de entorno
+│   ├── config.py                    Variables de entorno (incluye GROQ_API_KEY)
 │   ├── database.py                  SQLAlchemy engine + sesión
-│   └── dependencies.py             get_db() para inyección
+│   ├── dependencies.py              get_db() para inyección
+│   └── groq_client.py               Cliente singleton de Groq
 ├── domain/                          Lógica de negocio pura
 │   ├── catalogo/                    Entidades + servicio CRUD
 │   ├── propuesta/                   Entidades + servicio generación PPTX
-│   └── cronograma/                  Entidades + servicio generación XLSX
+│   ├── cronograma/                  Entidades + servicio generación XLSX
+│   └── ia/
+│       ├── entities.py              Modelos Pydantic: chat, validación de perfiles
+│       └── service.py               Lógica del agente (fases, Groq, config builder)
 ├── infrastructure/
 │   ├── models/catalogo.py           Modelos SQLAlchemy (ORM)
 │   ├── repositories/
@@ -146,7 +156,8 @@ backend/
 ├── api/v1/
 │   ├── catalogo/                    CRUD: /api/v1/catalogo/*
 │   ├── propuesta/                   POST /api/v1/propuesta/generar
-│   └── cronograma/                  POST /api/v1/cronograma/generar
+│   ├── cronograma/                  POST /api/v1/cronograma/generar
+│   └── ia/                          Endpoints del agente IA
 └── templates/                       Plantillas .pptx (una por filial)
 ```
 
@@ -160,9 +171,30 @@ backend/
 | POST | `/api/v1/catalogo/perfiles` | Crear perfil |
 | GET | `/api/v1/catalogo/perfiles?torre_id=1` | Perfiles de una torre |
 | POST | `/api/v1/propuesta/generar` | Generar propuesta .pptx |
-| POST | `/api/v1/cronograma/generar` | Generar cronograma .xlsx (payload: `roles[{perfil,seniority,personas,torre}]`, `actividades[{torre,horas,personas}]`) |
+| POST | `/api/v1/cronograma/generar` | Generar cronograma .xlsx |
+| POST | `/api/v1/ia/chat` | Turno de conversación con el agente Peri |
+| POST | `/api/v1/ia/validar-perfiles` | Clasifica nombres de perfiles con Groq |
+| POST | `/api/v1/ia/confirmar-perfil` | Confirma o descarta una corrección de perfil |
 
 Ver todos los endpoints en `http://localhost:8000/docs`.
+
+---
+
+## Agente conversacional (Peri)
+
+El robot 3D en la esquina inferior derecha abre un chat donde el agente **Peri** guía al usuario en 5 fases para recopilar los datos necesarios y generar la propuesta PPT:
+
+| Fase | Datos que recoge |
+|---|---|
+| 1 | Nombre del cliente y proyecto |
+| 2 | Torres tecnológicas del proyecto |
+| 3 | Perfiles del equipo y cantidad de personas |
+| 4 | Filial (corp / group / cbit) |
+| 5 | Confirmación y generación |
+
+**Modelo:** `llama-3.3-70b-versatile` (chat) vía Groq.
+
+El agente acumula contexto turno a turno y al finalizar construye automáticamente el payload de `/api/v1/propuesta/generar`, mostrando un botón para descargar la PPT directamente desde el chat.
 
 ---
 
