@@ -9,6 +9,62 @@ const INITIAL_PILLS = {
   consideraciones: false,
 }
 
+function buildProposalSummary(payload) {
+  const lines = []
+  const excel = payload.excel_data || {}
+
+  lines.push(`Filial: ${payload.filial || 'N/A'}`)
+  lines.push(`Cliente: ${excel.cliente || 'N/D'}`)
+  lines.push(`Proyecto: ${excel.proyecto || 'N/D'}`)
+  lines.push(`Archivo origen: ${excel.filename || 'Ninguno'}`)
+  lines.push(`QA: ${payload.incluir_qa ? 'Sí' : 'No'}`)
+  lines.push(`Secciones con genéricos: ${Object.entries(payload.opciones)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => key)
+    .join(', ') || 'Ninguna'}`)
+  lines.push(`Torres seleccionadas: ${payload.torres_seleccionadas.length ? payload.torres_seleccionadas.join(', ') : 'Ninguna'}`)
+
+  if (excel.torres?.length) {
+    lines.push(`Torres detectadas (${excel.torres.length}):`)
+    excel.torres.slice(0, 8).forEach((t, idx) => {
+      lines.push(` ${idx + 1}. ${t.nombre} — ${t.horas} hrs, ${t.personas} personas`)
+    })
+  }
+
+  const mappedRoles = (payload.roles || []).slice(0, 10)
+  if (mappedRoles.length) {
+    lines.push(`Roles detectados (${payload.roles.length}):`)
+    mappedRoles.forEach((r, idx) => {
+      lines.push(` ${idx + 1}. ${r.perfil || r.rol || 'sin nombre'} — ${r.torre || 'general'} (${r.personas || '1'})`)
+    })
+  }
+
+  const manualRoles = (payload.perfiles_manuales || []).slice(0, 10)
+  if (manualRoles.length) {
+    lines.push(`Perfiles manuales (${payload.perfiles_manuales.length}):`)
+    manualRoles.forEach((r, idx) => {
+      lines.push(` ${idx + 1}. ${r.rol} — ${r.desc || 'sin descripción'}`)
+    })
+  }
+
+  if (excel.consideraciones?.length) {
+    lines.push(`Consideraciones (${excel.consideraciones.length}): ${excel.consideraciones.slice(0, 5).join('; ')}`)
+  }
+  if (excel.fda?.length) {
+    lines.push(`FDA (${excel.fda.length}): ${excel.fda.slice(0, 5).join('; ')}`)
+  }
+  if (excel.entregables?.length) {
+    lines.push(`Entregables (${excel.entregables.length}):`)
+    excel.entregables.slice(0, 5).forEach((entry, idx) => {
+      if (entry.items?.length) {
+        lines.push(` ${idx + 1}. ${entry.torre}: ${entry.items.slice(0, 4).join(', ')}`)
+      }
+    })
+  }
+
+  return lines.join('\n')
+}
+
 export function usePropuesta() {
   const [filial, setFilial]              = useState('corp')
   const [excelData, setExcelData]        = useState(null)
@@ -18,6 +74,7 @@ export function usePropuesta() {
   const [incluirQa, setIncluirQa]        = useState(false)
   const [loading, setLoading]            = useState(false)
   const [error, setError]                = useState(null)
+  const [proposalDraft, setProposalDraft] = useState(null)
   const { download } = useDownload()
 
   function togglePill(key) {
@@ -27,6 +84,7 @@ export function usePropuesta() {
   async function generate(efectivosManuales) {
     setLoading(true)
     setError(null)
+    setProposalDraft(null)
     try {
       const actividades = (excelData?.torres || [])
         .filter(t => t && typeof t === 'object' && Number(t.horas) > 0)
@@ -88,17 +146,29 @@ export function usePropuesta() {
       }
 
       const result = await generarPropuesta(payload)
-      download(
-        result.content_b64,
-        result.filename,
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      )
+      const draft = {
+        filename: result.filename,
+        content_b64: result.content_b64,
+        summary: buildProposalSummary(payload),
+      }
+      setProposalDraft(draft)
+      return draft
     } catch (err) {
       setError(err.message || 'Error al generar la propuesta')
       console.error('Generate error:', err)
+      return null
     } finally {
       setLoading(false)
     }
+  }
+
+  function downloadProposal(draft) {
+    if (!draft) return
+    download(
+      draft.content_b64,
+      draft.filename,
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    )
   }
 
   return {
@@ -109,6 +179,8 @@ export function usePropuesta() {
     opciones, togglePill,
     incluirQa, setIncluirQa,
     loading, error,
+    proposalDraft,
     generate,
+    downloadProposal,
   }
 }

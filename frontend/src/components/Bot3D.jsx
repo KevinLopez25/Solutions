@@ -1,4 +1,4 @@
-export default function Bot3D() {
+export default function Bot3D({ onToggleChat }) {
   return (
     <>
       {/* Robot grande — lado izquierdo, detrás del contenido */}
@@ -55,6 +55,9 @@ export default function Bot3D() {
           <div className="ring" />
         </div>
       </div>
+      <button type="button" className="bot3d-chat-button" onClick={onToggleChat}>
+        💬 IA
+      </button>
     </>
   )
 }
