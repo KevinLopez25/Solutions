@@ -7,7 +7,7 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def create_chat_completion(messages: list[dict[str, str]], model: str | None = None) -> str:
+def create_chat_completion(messages: list[dict[str, str]], model: str | None = None, max_tokens: int = 1024) -> str:
     if not settings.GROQ_API_KEY:
         raise RuntimeError(
             "La variable de entorno GROQ_API_KEY no está configurada. "
@@ -20,7 +20,7 @@ def create_chat_completion(messages: list[dict[str, str]], model: str | None = N
         "model": model,
         "messages": messages,
         "temperature": 0.3,
-        "max_tokens": 1024,
+        "max_tokens": max_tokens,
         "top_p": 0.95,
     }
     headers = {

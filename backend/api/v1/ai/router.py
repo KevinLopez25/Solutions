@@ -1,9 +1,10 @@
+import base64
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from domain.ai.service import chat as ai_chat, review_and_modify_proposal
+from domain.ai.service import chat as ai_chat, review_and_modify_proposal, replace_logo_in_pptx
 
 
 class AIMessage(BaseModel):
@@ -30,6 +31,16 @@ class AIModifyProposalResponse(BaseModel):
     content_b64: str
 
 
+class AIReplaceLogoRequest(BaseModel):
+    content_b64: str
+    logo_b64: str
+    logo_mime: str = 'image/png'
+
+
+class AIReplaceLogoResponse(BaseModel):
+    content_b64: str
+
+
 router = APIRouter(prefix="/ai", tags=["IA"])
 
 
@@ -40,6 +51,24 @@ def chat_with_ai(request: AIChatRequest):
         return AIChatResponse(reply=reply)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc) or "Error interno en el servicio IA")
+
+
+@router.post("/reemplazar-logo", response_model=AIReplaceLogoResponse)
+def replace_logo(request: AIReplaceLogoRequest):
+    if not request.content_b64:
+        raise HTTPException(status_code=400, detail="El contenido del documento es obligatorio.")
+    if not request.logo_b64:
+        raise HTTPException(status_code=400, detail="La imagen del logo es obligatoria.")
+    try:
+        logo_bytes = base64.b64decode(request.logo_b64)
+        pptx_bytes = base64.b64decode(request.content_b64)
+        modified_bytes = replace_logo_in_pptx(pptx_bytes, logo_bytes, request.logo_mime)
+        modified_b64 = base64.b64encode(modified_bytes).decode()
+        return AIReplaceLogoResponse(content_b64=modified_b64)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "Error al reemplazar el logo")
 
 
 @router.post("/modificar-propuesta", response_model=AIModifyProposalResponse)

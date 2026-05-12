@@ -113,6 +113,14 @@ export function usePropuesta() {
           horas:         Math.round(Number(t.horas) || 0),
           personas:      Math.max(1, Math.round(Number(t.personas) || 1)),
         })),
+        perfiles:        (excelData?.perfiles || [])
+          .filter(p => p && typeof p === 'object' && p.perfil && String(p.perfil).trim() !== '')
+          .map(p => ({
+            torre:     String(p.torre || '').trim(),
+            perfil:    String(p.perfil || '').trim(),
+            seniority: String(p.seniority || '').trim(),
+            personas:  Math.max(1, Math.round(Number(p.personas) || 1)),
+          })),
         consideraciones: (excelData?.consideraciones || []).map(c => String(c).trim()).filter(c => c.length > 0).slice(0, 20),
         fda:             (excelData?.fda || []).map(f => String(f).trim()).filter(f => f.length > 0).slice(0, 20),
         entregables:     (excelData?.entregables || []).map(e => ({
