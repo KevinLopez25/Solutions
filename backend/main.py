@@ -40,6 +40,10 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         print(f"[WARN] No se crearon las tablas: {exc}", file=sys.stderr)
     _print_db_banner()
+    if not settings.GROQ_API_KEY:
+        print("\n[WARN] La variable de entorno GROQ_API_KEY no está configurada. La IA no funcionará sin ella.\n")
+    else:
+        print("\n[INFO] GROQ_API_KEY está configurada. Servicio de IA listo.\n")
     yield
 
 

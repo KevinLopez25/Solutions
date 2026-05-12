@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { enviarMensajeIA } from '../services/aiService'
+import { enviarMensajeIA, modificarPropuesta } from '../services/aiService'
 
 const INITIAL_ASSISTANT = {
   role: 'assistant',
@@ -9,7 +9,7 @@ const INITIAL_ASSISTANT = {
 
 const MAX_FILE_LENGTH = 22000
 
-export default function ChatBotPanel({ open, onToggle, proposalDraft, onReviewRequested }) {
+export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposalModified }) {
   const [messages, setMessages] = useState([INITIAL_ASSISTANT])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,15 +99,15 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onReviewRe
     }
   }
 
-  async function handleReviewProposal() {
+  async function handleModifyProposal() {
     if (!proposalDraft || loading) return
 
-    const reviewPrompt = input.trim() ||
-      'Revisa esta propuesta generada y busca errores en roles, nomenclatura, redacción y estructura.'
+    const instruction = input.trim() ||
+      'Corrige únicamente los nombres de roles que sean ilógicos, por ejemplo "desarrollador ingeniero de datos" debe quedar "Ingeniero de Datos". No agregues ni elimines perfiles, trabaja solo con los que ya existen en el documento.'
 
     const reviewMessage = {
       role: 'user',
-      content: `He generado una propuesta llamada ${proposalDraft.filename}. Usa el siguiente resumen para revisarla:\n\n${proposalDraft.summary}\n\nPor favor realiza la revisión con base en esta petición:\n${reviewPrompt}`,
+      content: `He generado una propuesta llamada ${proposalDraft.filename}. Usa el siguiente resumen para modificar el documento según esta instrucción:\n\n${instruction}`,
     }
 
     const nextMessages = [...chatMessages, reviewMessage]
@@ -115,11 +115,21 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onReviewRe
     setInput('')
     setLoading(true)
     setError('')
-    if (onReviewRequested) onReviewRequested()
 
     try {
-      const { reply } = await enviarMensajeIA(nextMessages)
+      const { reply, content_b64 } = await modificarPropuesta({
+        messages: chatMessages,
+        content_b64: proposalDraft.content_b64,
+        instruction,
+      })
+
+      const updatedDraft = {
+        ...proposalDraft,
+        content_b64,
+      }
+
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+      if (onProposalModified) onProposalModified(updatedDraft)
     } catch (err) {
       const message = err?.message || 'Error al conectar con IA. Verifica tu conexión.'
       setError(message)
@@ -187,15 +197,15 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onReviewRe
               {proposalDraft && (
                 <div className="chatbot-proposal-review">
                   <div>
-                    <strong>Propuesta lista para revisión:</strong> {proposalDraft.filename}
+                    <strong>Propuesta lista para modificación:</strong> {proposalDraft.filename}
                   </div>
                   <button
                     type="button"
                     className="chatbot-send-file"
-                    onClick={handleReviewProposal}
+                    onClick={handleModifyProposal}
                     disabled={loading}
                   >
-                    {loading ? 'Revisando propuesta...' : 'Revisar propuesta generada'}
+                    {loading ? 'Modificando documento...' : 'Modificar documento generado'}
                   </button>
                 </div>
               )}

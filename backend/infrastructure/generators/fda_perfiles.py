@@ -773,9 +773,6 @@ def _edit_perfiles_slide(xml_bytes, perfiles):
                 all_t = txb.findall(f'.//{{{A}}}t')
                 if all_t:
                     rol_text = _clean_inline_text(p.get('rol'))
-                    # Agregar "Desarrollador " si no lo tiene ya
-                    if rol_text and not rol_text.lower().startswith('desarrollador'):
-                        rol_text = 'Desarrollador ' + rol_text
                     all_t[0].text = rol_text
                     for t in all_t[1:]:
                         t.text = ''
@@ -1124,7 +1121,8 @@ def edit(pptx_bytes, config, catalog_data=None):
         ]
         perfiles = _complement_perfiles(base_perfiles, torres_activas, perf_db) if usar_genericos else base_perfiles
     elif excel_perfiles:
-        # Buscar descripción en catálogo; si no hay match → placeholder bold
+        # El Excel es la fuente de verdad: usar exactamente los perfiles que trae.
+        # Solo se complementa con genéricos si el Excel no trajo ningún perfil con nombre.
         base_perfiles = []
         seen_roles = set()
         for p in excel_perfiles:
@@ -1143,7 +1141,11 @@ def edit(pptx_bytes, config, catalog_data=None):
                     base_perfiles.append({'rol': rol_clean, 'desc': catalog_desc})
                 else:
                     base_perfiles.append({'rol': rol_clean, 'desc': _NO_CATALOG_DESC, 'desc_bold': True})
-        perfiles = _complement_perfiles(base_perfiles, torres_activas, perf_db) if usar_genericos else base_perfiles
+        # Nunca complementar con genéricos cuando el Excel ya tiene perfiles definidos.
+        # El usuario espera ver exactamente lo que puso en el Excel.
+        perfiles = base_perfiles if base_perfiles else (
+            _complement_perfiles([], torres_activas, perf_db) if usar_genericos else []
+        )
     else:
         # Sin datos en Anexos ni manual → catálogo completo por torre
         perfiles = []
