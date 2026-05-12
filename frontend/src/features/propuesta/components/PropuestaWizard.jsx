@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FILIALES, FILIAL_LABELS, FILIAL_CODES, TORRES_ALL, TORRE_ICONS, PILL_LABELS } from '../../../core/constants'
 import { usePropuesta } from '../hooks/usePropuesta'
+import { reemplazarLogo } from '../../ai/services/aiService'
 import ExcelUploader from './ExcelUploader'
 import TorreSelector from './TorreSelector'
 import PerfilSelector from './PerfilSelector'
@@ -17,6 +18,9 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   const [modoPerfiles, setModoPerfiles] = useState('catalogo')
   const [manualRol, setManualRol]     = useState('')
   const [manualDesc, setManualDesc]   = useState('')
+  const [logoFile, setLogoFile]        = useState(null) // { b64, mimeType, name }
+  const [applyingLogo, setApplyingLogo] = useState(false)
+  const [logoMsg, setLogoMsg]          = useState(null) // { ok: bool, text: string }
 
   const {
     filial, setFilial,
@@ -95,12 +99,61 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     setManualDesc('')
   }
 
+  async function handleApplyLogo() {
+    if (!logoFile || !proposalDraft || applyingLogo) return
+    setApplyingLogo(true)
+    setLogoMsg(null)
+    try {
+      const { content_b64 } = await reemplazarLogo({
+        content_b64: proposalDraft.content_b64,
+        logo_b64:    logoFile.b64,
+        logo_mime:   logoFile.mimeType,
+      })
+      onDraftGenerated({ ...proposalDraft, content_b64 })
+      setLogoMsg({ ok: true, text: 'Logo aplicado correctamente. Descarga la propuesta para verlo.' })
+    } catch (err) {
+      const detail = err?.response?.data?.detail || err?.message || 'Error al aplicar el logo.'
+      setLogoMsg({ ok: false, text: detail })
+    } finally {
+      setApplyingLogo(false)
+    }
+  }
+
+  function handleLogoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const b64 = reader.result.split(',')[1]
+      setLogoFile({ b64, mimeType: file.type || 'image/png', name: file.name })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
   async function handleGenerate() {
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
-    const draft = await generate(efectivos)
-    if (onDraftGenerated) {
-      onDraftGenerated(draft)
+    let draft = await generate(efectivos)
+    if (!draft) return
+
+    if (logoFile) {
+      setApplyingLogo(true)
+      try {
+        const { content_b64 } = await reemplazarLogo({
+          content_b64: draft.content_b64,
+          logo_b64:    logoFile.b64,
+          logo_mime:   logoFile.mimeType,
+        })
+        draft = { ...draft, content_b64 }
+      } catch (err) {
+        const detail = err?.response?.data?.detail || err?.message || 'Error al aplicar el logo.'
+        setLogoMsg({ ok: false, text: detail })
+      } finally {
+        setApplyingLogo(false)
+      }
     }
+
+    if (onDraftGenerated) onDraftGenerated(draft)
   }
 
   function handleDownload() {
@@ -468,10 +521,13 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
             {proposalDraft && (
               <div className="review-block">
                 <div className="review-title">Propuesta generada</div>
-                <div className="review-text">La propuesta está lista. Antes de descargarla, revisa en el chat con IA y solicita los cambios que quieras.</div>
+                <div className="review-text">La propuesta está lista. Puedes descargarla directamente o revisarla con el asistente IA antes.</div>
                 <div className="review-actions">
+                  <button className="btn-secondary" type="button" onClick={handleDownload}>
+                    ⬇ Descargar sin revisión
+                  </button>
                   <button className="btn-secondary" type="button" onClick={onOpenChat}>
-                    Abrir chat para revisión
+                    Revisar con IA
                   </button>
                   <button
                     className="btn-gen"
@@ -479,23 +535,77 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                     disabled={!reviewRequested || loading}
                     onClick={handleDownload}
                   >
-                    {reviewRequested ? '⬇ Descargar propuesta' : '🔍 Revisión IA requerida'}
+                    {reviewRequested ? '⬇ Descargar con cambios IA' : '🔍 Pendiente revisión IA'}
                   </button>
                 </div>
-                {!reviewRequested && (
-                  <div className="review-note">Solicita la revisión en el chat antes de descargar la propuesta.</div>
-                )}
               </div>
             )}
 
             {error && <p className="err-txt">{error}</p>}
 
+            {/* ── Logo de la empresa ── */}
+            <div className="sum-card">
+              <div className="sum-head"><span className="sum-head-title">Logo de la empresa (opcional)</span></div>
+              <div className="sum-body">
+                <div className="sr">
+                  <span className="sr-l"><span>🖼️</span>Se colocará en la primera diapositiva</span>
+                  {logoFile ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="stag y">{logoFile.name}</span>
+                      <button
+                        type="button"
+                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}
+                        onClick={() => { setLogoFile(null); setLogoMsg(null) }}
+                      >✕</button>
+                    </span>
+                  ) : (
+                    <label style={{ cursor: 'pointer' }}>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.gif,.webp,.svg"
+                        onChange={e => { setLogoMsg(null); handleLogoChange(e) }}
+                        style={{ display: 'none' }}
+                      />
+                      <span className="stag b" style={{ cursor: 'pointer' }}>📂 Subir logo</span>
+                    </label>
+                  )}
+                </div>
+
+                {logoFile && (
+                  <img
+                    src={`data:${logoFile.mimeType};base64,${logoFile.b64}`}
+                    alt="Logo preview"
+                    style={{ maxHeight: 64, maxWidth: '100%', marginTop: 8, borderRadius: 6, objectFit: 'contain', display: 'block' }}
+                  />
+                )}
+
+                {/* Botón para aplicar el logo a la propuesta ya generada */}
+                {logoFile && proposalDraft && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ marginTop: 10, width: '100%' }}
+                    onClick={handleApplyLogo}
+                    disabled={applyingLogo}
+                  >
+                    {applyingLogo ? '🖼️ Aplicando logo...' : '🖼️ Aplicar logo a la propuesta'}
+                  </button>
+                )}
+
+                {logoMsg && (
+                  <p style={{ marginTop: 8, fontSize: 13, color: logoMsg.ok ? 'var(--accent)' : '#f87171' }}>
+                    {logoMsg.ok ? '✅' : '⚠️'} {logoMsg.text}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div className="gen-block">
               <span className="gen-emoji">🚀</span>
               <div className="gen-t">Todo listo</div>
               <div className="gen-s">El documento se generará con los datos del Excel más los genéricos seleccionados.</div>
-              <button className="btn-gen" onClick={handleGenerate} disabled={loading}>
-                {loading ? '⏳ Generando...' : proposalDraft ? '⬇ Regenerar propuesta' : '⬇ Generar documento'}
+              <button className="btn-gen" onClick={handleGenerate} disabled={loading || applyingLogo}>
+                {loading ? '⏳ Generando...' : applyingLogo ? '🖼️ Aplicando logo...' : proposalDraft ? '⬇ Regenerar propuesta' : '⬇ Generar documento'}
               </button>
             </div>
           </div>

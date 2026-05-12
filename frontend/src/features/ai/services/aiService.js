@@ -7,3 +7,7 @@ export function enviarMensajeIA(messages) {
 export function modificarPropuesta(payload) {
   return api.post('/ai/modificar-propuesta', payload).then((res) => res.data)
 }
+
+export function reemplazarLogo(payload) {
+  return api.post('/ai/reemplazar-logo', payload).then((res) => res.data)
+}
