@@ -1,62 +1,122 @@
 """
-cronograma_excel.py
-Genera cronograma XLSX con drawingML roundRect shapes.
+cronograma_excel.py — Diseño final v4 (layout corregido)
+==========================================
+Layout (fila 0-based drawingML):
 
-Layout:
-  Fila 0         : Roles (una sola fila horizontal, cards a lo largo del cronograma)
-  Fila 1         : Kick Off | Meses
-  Fila 2         : S0       | Semanas S1..Sn  (omitida si > 6 meses)
-  Fila 3 (o 2)   : Sprint 0 | Sprints 1..N
-  Fila 4+ (o 3+) : Actividades (primera = "Preparar Ambientes" siempre, Sprint 0 completo)
+  ROW 0           : Título "Cronograma del Proyecto" + subtítulo
+  ROW 1..N_PILLS  : Pills de roles (wrap automático)
+  ROW N_PILLS+1   : Meses (col B+) | Card Info (col A, span múltiples filas)
+  ROW N_PILLS+2   : Semanas
+  ROW N_PILLS+3   : Sprints
+  ROW N_PILLS+4+  : Actividades
 """
 
 import io
 import math
 import zipfile
+import datetime
 from lxml import etree
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
-# ─── Constantes ──────────────────────────────────────────────────────────────
+# ── Negocio ───────────────────────────────────────────────────────────────────
 HORAS_SEMANALES    = 43
 SEMANAS_POR_MES    = 4
 SEMANAS_POR_SPRINT = 2
-UMBRAL_MESES       = 24   # si total_semanas > esto → ocultar fila de semanas
 
-BARRA_COLORES = [
-    "0DC56D", "2FF195", "24BABA",
-    "2F2BCB", "1D1B80", "FF6D00", "D50000",
-]
-COLOR_PREP_AMBIENTES = "4A4A8A"   # azul oscuro fijo para "Preparar Ambientes"
+# ── Paleta ────────────────────────────────────────────────────────────────────
+BARRA_COLORES = ["1B8A3E","5B4FCF","24BABA","8B5CF6","10B981","FF6D00","D50000"]
+ROLE_COLORS   = ["5B4FCF","1B8A3E","24BABA","8B5CF6","10B981","FF6D00",
+                 "0891B2","D97706","DC2626","7C3AED","059669","2563EB"]
 
-COLOR_MES     = "757070"
-COLOR_SEMANA  = "D0CECE"
-COLOR_SPRINT  = "798EA9"
-COLOR_KICKOFF = "757070"
+COLOR_GESTION   = "7C3AED"
+COLOR_PREP      = "1B8A3E"
+COLOR_MES       = "4B5563"
+COLOR_SEMANA_BG = "D1D5DB"
+COLOR_SEMANA_TX = "374151"
+COLOR_SPRINT    = "374151"
+COLOR_KO        = "374151"
+COLOR_INFO_BG   = "F3F0FF"
+COLOR_INFO_BOR  = "8B5CF6"
+COLOR_TITULO    = "111827"
+COLOR_SUBTITULO = "6B7280"
 
-ROLE_COLORS = [
-    "2F2BCB", "1D1B80", "24BABA",
-    "0DC56D", "FF6D00", "D50000",
-    "798EA9", "757070",
-]
+# ── EMU columnas ──────────────────────────────────────────────────────────────
+PADDING     =   38_100
+COL_A_EMU   = 1_600_200   # col A – etiquetas actividades
+COL_B_EMU   =   457_200   # col B – kick off / S0 / Sprint 0
+COL_SEM_EMU =   457_200   # cada semana
 
-PADDING        = 38_100
-COL_A_EMU      = 1_781_175
-COL_SEMANA_EMU =   414_337
-ROW_HDR_EMU    =   304_800
-ROW_SUB_EMU    =   254_000
-ROW_ACT_EMU    =   279_400
-ROW_ROLES_EMU  =   600_000   # altura fija de la fila de roles
+# ── EMU filas ─────────────────────────────────────────────────────────────────
+ROW_TITULO_EMU  =   571_500
+ROW_PILL_EMU    =   342_900
+ROW_HDR_EMU     =   342_900
+ROW_SUB_EMU     =   285_750
+ROW_SPRINT_EMU  =   285_750
+ROW_ACT_EMU     =   314_325
 
-# ─── API pública ─────────────────────────────────────────────────────────────
+MAX_PILLS_POR_FILA = 8
+
+# ── API pública ───────────────────────────────────────────────────────────────
 def generate_cronograma(config: dict) -> bytes:
-    actividades = config.get("actividades", [])
-    roles_raw   = config.get("roles", [])
+    actividades  = config.get("actividades", [])
+    roles_raw    = config.get("roles", [])
+    nombre_proy  = config.get("nombre_proyecto", "Proyecto")
+    torre_proy   = config.get("torre", "")
+    id_proy      = config.get("id_proyecto", "")
+    fecha_str    = config.get("fecha", datetime.date.today().strftime("%d de %B de %Y"))
 
     if not actividades:
         raise ValueError("No hay actividades")
 
-    # Normalizar roles: solo los que tienen perfil asignado (col[1] no vacío)
+    roles = _normalizar_roles(roles_raw)
+
+    total_horas = 0
+    for act in actividades:
+        p = max(1, int(act.get("personas", 1)))
+        act["semanas"] = max(1, math.ceil(act["horas"] / p / HORAS_SEMANALES))
+        total_horas += act["horas"]
+
+    total_semanas  = max(a["semanas"] for a in actividades)
+    duracion_meses = round(total_semanas / SEMANAS_POR_MES, 1)
+
+    n_roles     = len(roles)
+    filas_pills = max(1, math.ceil(n_roles / MAX_PILLS_POR_FILA)) if n_roles else 0
+
+    # ROW 0 = título
+    # ROW 1 .. filas_pills = pills
+    # ROW filas_pills+1    = meses / kick-off  ← ROW_HDR_START
+    ROW_HDR_START = 1 + filas_pills
+
+    meta = {
+        "nombre_proyecto": nombre_proy,
+        "torre":           torre_proy,
+        "id_proyecto":     id_proy,
+        "fecha":           fecha_str,
+        "total_horas":     total_horas,
+        "duracion_meses":  duracion_meses,
+        "filas_pills":     filas_pills,
+        "ROW_HDR_START":   ROW_HDR_START,
+    }
+
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = "Cronograma"
+    ws1.sheet_view.showGridLines = False
+    _configurar_dimensiones(ws1, total_semanas, filas_pills, sin_semanas=False)
+
+    ws2 = wb.create_sheet(title="Cronograma sin semanas")
+    ws2.sheet_view.showGridLines = False
+    _configurar_dimensiones(ws2, total_semanas, filas_pills, sin_semanas=True)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    return _inyectar_drawing(buf.getvalue(), actividades, roles,
+                             total_semanas, meta)
+
+
+def _normalizar_roles(roles_raw):
     roles = []
     for r in roles_raw:
         if isinstance(r, dict):
@@ -66,80 +126,49 @@ def generate_cronograma(config: dict) -> bytes:
                     "perfil":    nombre,
                     "seniority": str(r.get("seniority", "")).strip(),
                     "personas":  max(1, int(r.get("personas", 1))),
-                    "torre":     str(r.get("torre", "")).strip(),
                 })
         else:
             nombre = str(r).strip()
             if nombre:
-                roles.append({"perfil": nombre, "seniority": "", "personas": 1, "torre": ""})
+                roles.append({"perfil": nombre, "seniority": "", "personas": 1})
+    return roles
 
-    # Calcular semanas por actividad
-    for act in actividades:
-        p = max(1, int(act.get("personas", 1)))
-        act["semanas"] = max(1, math.ceil(act["horas"] / p / HORAS_SEMANALES))
 
-    total_semanas = max(a["semanas"] for a in actividades)
-    sin_semanas   = total_semanas > UMBRAL_MESES
-
-    # Filas de header: roles(1) + mes(1) + semana?(1) + sprint(1)
-    n_hdr_sin_roles = 2 if sin_semanas else 3   # mes + sprint  OR  mes + semana + sprint
-    n_hdr = 1 + n_hdr_sin_roles                 # +1 for roles row
-
-    wb = Workbook()
-    ws1 = wb.active
-    ws1.title = "Cronograma"
-    ws1.sheet_view.showGridLines = False
-    _configurar_dimensiones(ws1, total_semanas, n_hdr, sin_semanas)
-
-    ws2 = wb.create_sheet(title="Cronograma sin semanas")
-    ws2.sheet_view.showGridLines = False
-    _configurar_dimensiones(ws2, total_semanas, 3, True)
-
-    buf = io.BytesIO()
-    wb.save(buf)
-
-    return _inyectar_drawing(buf.getvalue(), actividades, roles,
-                             total_semanas, sin_semanas, n_hdr)
-
-# ─── Dimensiones ─────────────────────────────────────────────────────────────
-def _configurar_dimensiones(ws, total_semanas, n_hdr, sin_semanas):
-    ws.row_dimensions[1].height = 45    # fila 0 → roles (en puntos, ~600k EMU)
-    ws.row_dimensions[2].height = 24    # fila 1 → mes / kick off
+# ── Dimensiones ───────────────────────────────────────────────────────────────
+def _configurar_dimensiones(ws, total_semanas, filas_pills, sin_semanas):
+    r = 1
+    ws.row_dimensions[r].height = 44   # título
+    r += 1
+    for _ in range(filas_pills):
+        ws.row_dimensions[r].height = 26
+        r += 1
+    ws.row_dimensions[r].height = 26;   r += 1   # meses / kick-off
     if not sin_semanas:
-        ws.row_dimensions[3].height = 20   # fila 2 → semanas / S0
-        ws.row_dimensions[4].height = 20   # fila 3 → sprints / Sprint 0
-        act_start = 5
-    else:
-        ws.row_dimensions[3].height = 20   # fila 2 → sprints / Sprint 0
-        act_start = 4
+        ws.row_dimensions[r].height = 22; r += 1  # semanas
+    ws.row_dimensions[r].height = 22;   r += 1   # sprints
+    for rr in range(r, r + 60):
+        ws.row_dimensions[rr].height = 24
 
-    for r in range(act_start, act_start + 40):
-        ws.row_dimensions[r].height = 22
-
-    ws.column_dimensions["A"].width = 26
-    ws.column_dimensions["B"].width = 5.5
+    ws.column_dimensions["A"].width = 23
+    ws.column_dimensions["B"].width = 6
     for i in range(total_semanas):
-        ws.column_dimensions[get_column_letter(i + 3)].width = 5.5
+        ws.column_dimensions[get_column_letter(i + 3)].width = 6
 
-# ─── Inyección ZIP ───────────────────────────────────────────────────────────
-def _inyectar_drawing(xlsx_bytes, actividades, roles,
-                      total_semanas, sin_semanas, n_hdr):
 
-    drawing1_xml = _build_drawing_xml(actividades, roles,
-                                      total_semanas, sin_semanas, n_hdr)
-    drawing2_xml = _build_drawing_xml(actividades, roles,
-                                      total_semanas, True, 3)
+# ── Inyección ZIP ─────────────────────────────────────────────────────────────
+def _inyectar_drawing(xlsx_bytes, actividades, roles, total_semanas, meta):
+    d1 = _build_drawing(actividades, roles, total_semanas, meta, sin_semanas=False)
+    d2 = _build_drawing(actividades, roles, total_semanas, meta, sin_semanas=True)
 
     with zipfile.ZipFile(io.BytesIO(xlsx_bytes), "r") as zin:
         files = {n: zin.read(n) for n in zin.namelist()}
 
-    files["xl/drawings/drawing1.xml"] = drawing1_xml.encode("utf-8")
-    files["xl/drawings/drawing2.xml"] = drawing2_xml.encode("utf-8")
-
-    _ensure_sheet_drawing(files, "sheet1.xml", "drawing1.xml")
-    _ensure_sheet_drawing(files, "sheet2.xml", "drawing2.xml")
-    _ensure_content_type(files, "drawing1.xml")
-    _ensure_content_type(files, "drawing2.xml")
+    files["xl/drawings/drawing1.xml"] = d1.encode("utf-8")
+    files["xl/drawings/drawing2.xml"] = d2.encode("utf-8")
+    _patch_sheet(files, "sheet1.xml", "drawing1.xml")
+    _patch_sheet(files, "sheet2.xml", "drawing2.xml")
+    _patch_ct(files, "drawing1.xml")
+    _patch_ct(files, "drawing2.xml")
 
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
@@ -148,44 +177,47 @@ def _inyectar_drawing(xlsx_bytes, actividades, roles,
     return out.getvalue()
 
 
-def _ensure_sheet_drawing(files, sheet_name, drawing_name):
+def _patch_sheet(files, sheet_name, drawing_name):
+    rid = "rId10"
     rel_path = f"xl/worksheets/_rels/{sheet_name}.rels"
-    drawing_rid = "rId10"
-    relationship = (
-        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        + f'<Relationship Id="{drawing_rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/{drawing_name}"/>'.encode("utf-8")
-        + b'</Relationships>'
+    rel_entry = (
+        f'<Relationship Id="{rid}" '
+        f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+        f'Target="../drawings/{drawing_name}"/>'
     )
-
     if rel_path not in files:
-        files[rel_path] = relationship
+        files[rel_path] = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + rel_entry + '</Relationships>'
+        ).encode("utf-8")
     else:
         rel = files[rel_path].decode("utf-8")
         if drawing_name not in rel:
-            rel = rel.replace("</Relationships>",
-                              f'<Relationship Id="{drawing_rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/{drawing_name}"/></Relationships>')
+            rel = rel.replace("</Relationships>", rel_entry + "</Relationships>")
             files[rel_path] = rel.encode("utf-8")
 
-    sheet_path = f"xl/worksheets/{sheet_name}"
-    sheet = files[sheet_path].decode("utf-8")
+    sp = f"xl/worksheets/{sheet_name}"
+    sheet = files[sp].decode("utf-8")
     if "<drawing " not in sheet:
         if "xmlns:r=" not in sheet:
             sheet = sheet.replace("<worksheet ",
                 '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ', 1)
-        sheet = sheet.replace("</worksheet>", f'<drawing r:id="{drawing_rid}"/></worksheet>')
-        files[sheet_path] = sheet.encode("utf-8")
+        sheet = sheet.replace("</worksheet>", f'<drawing r:id="{rid}"/></worksheet>')
+        files[sp] = sheet.encode("utf-8")
 
 
-def _ensure_content_type(files, drawing_name):
+def _patch_ct(files, drawing_name):
     ct = files["[Content_Types].xml"].decode("utf-8")
-    override = f'<Override PartName="/xl/drawings/{drawing_name}" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
-    if override not in ct:
-        ct = ct.replace("</Types>", f'{override}</Types>')
+    ov = (f'<Override PartName="/xl/drawings/{drawing_name}" '
+          f'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>')
+    if ov not in ct:
+        ct = ct.replace("</Types>", ov + "</Types>")
         files["[Content_Types].xml"] = ct.encode("utf-8")
 
-# ─── Drawing XML principal ───────────────────────────────────────────────────
-def _build_drawing_xml(actividades, roles, total_semanas, sin_semanas, n_hdr):
+
+# ── Drawing principal ─────────────────────────────────────────────────────────
+def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
     A   = "http://schemas.openxmlformats.org/drawingml/2006/main"
     root = etree.Element(f"{{{XDR}}}wsDr",
@@ -193,204 +225,238 @@ def _build_drawing_xml(actividades, roles, total_semanas, sin_semanas, n_hdr):
                                 "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"})
     sid = 1
 
-    # ── Índices de filas (0-based para drawingML) ─────────────────────────
-    ROW_ROLES  = 0
-    ROW_MES    = 1
+    filas_pills   = meta["filas_pills"]
+    ROW_HDR_START = meta["ROW_HDR_START"]
+
+    # ── Índices de filas (0-based) ─────────────────────────────────────────
+    ROW_TITULO = 0
+    # Pills: filas 1 .. filas_pills
+    ROW_MES    = ROW_HDR_START          # meses + kick-off
     if sin_semanas:
         ROW_SEMANA = None
-        ROW_SPRINT = 2
+        ROW_SPRINT = ROW_MES + 1
     else:
-        ROW_SEMANA = 2
-        ROW_SPRINT = 3
+        ROW_SEMANA = ROW_MES + 1
+        ROW_SPRINT = ROW_MES + 2
+    n_hdr = ROW_SPRINT + 1              # primera fila de actividades
 
-    COL_KO = 1    # col B = Kick Off / S0 / Sprint 0
-    COL_S1 = 2    # primera semana real
+    # Columnas (0-based)
+    COL_KO = 1    # col B = kick-off / S0 / Sprint 0
+    COL_S1 = 2    # col C en adelante = semanas
 
-    # ── 1. FILA DE ROLES (fila 0, una sola fila horizontal) ───────────────
-    # Cards distribuidas uniformemente a lo largo del ancho total del cronograma:
-    # col A (0) + col B (KO, 1) + cols semanas (2..N+1)
-    # Ancho total disponible = COL_A_EMU + (total_semanas + 1) * COL_SEMANA_EMU
-    TOTAL_W_EMU = COL_A_EMU + (total_semanas + 1) * COL_SEMANA_EMU
-    n_roles = len(roles)
+    # Ancho total
+    TOTAL_W = COL_A_EMU + COL_B_EMU + total_semanas * COL_SEM_EMU
 
-    if n_roles > 0:
-        # Distribuir uniformemente: cada card ocupa TOTAL_W / n_roles de ancho
-        # pero con un mínimo razonable para que el texto quepa
-        CARD_GAP    = 25_000
-        BADGE_SIZE  = 160_000
-        card_w      = max(400_000, TOTAL_W_EMU // n_roles)  # mínimo ~400k EMU
+    # ── 1. TÍTULO ──────────────────────────────────────────────────────────
+    subtitulo = (f"Generado el {meta['fecha']}  |  "
+                 f"Total: {meta['total_horas']}h  |  "
+                 f"Duración: {meta['duracion_meses']} meses")
 
-        for i, rol in enumerate(roles):
-            color = ROLE_COLORS[i % len(ROLE_COLORS)]
+    sid = _shape_abs(root, sid,
+                     "Cronograma del Proyecto",
+                     row=ROW_TITULO, x=PADDING*2, y=PADDING*2,
+                     w=TOTAL_W - PADDING*4, h=ROW_TITULO_EMU - PADDING*4,
+                     color="FFFFFF", text_color=COLOR_TITULO,
+                     font_sz=1400, bold=True, geom="rect",
+                     subtitulo=subtitulo, sub_sz=900, sub_color=COLOR_SUBTITULO)
 
-            nombre    = rol["perfil"]
-            seniority = rol["seniority"]
-            personas  = rol["personas"]
-            label     = f"{nombre}\n{seniority}" if seniority else nombre
+    # ── 2. PILLS DE ROLES ─────────────────────────────────────────────────
+    PILL_H       = 228_600
+    PILL_GAP_H   = 76_200
+    PILL_GAP_V   = (ROW_PILL_EMU - PILL_H) // 2   # centrado vertical en la fila
+    BADGE_R      = 133_350
+    PILL_PAD_X   = PADDING * 2
 
-            # Posición X absoluta del card en el sheet
-            # Las shapes de drawingML usan col + colOffset
-            # Calculamos en qué columna cae x_start y cuál es el offset
-            x_start = i * card_w
-            x_end   = x_start + card_w - CARD_GAP * 2
+    for rol in roles:
+        label = (f"  {rol['perfil']} {rol['seniority']}  "
+                 if rol["seniority"]
+                 else f"  {rol['perfil']}  ")
+        rol["_pill_w"] = max(300_000, len(label) * 85_000)
+        rol["_label"]  = label.strip()
 
-            col_from, x_off_from = _x_to_col_offset(x_start + CARD_GAP, total_semanas)
-            col_to,   x_off_to   = _x_to_col_offset(x_end, total_semanas)
+    x_cursor  = PILL_PAD_X
+    fila_pill = 1   # primera fila de pills en 0-based
+    for i, rol in enumerate(roles):
+        pw    = rol["_pill_w"]
+        color = ROLE_COLORS[i % len(ROLE_COLORS)]
 
-            # Card principal
-            sid = _shape_span(root, sid, label,
-                              col_from, ROW_ROLES, x_off_from,
-                              col_to,   ROW_ROLES, x_off_to,
-                              ROW_ROLES_EMU - CARD_GAP,
-                              color, "17948", "FFFFFF", 700, True)
+        # Wrap si no cabe
+        if i > 0 and (x_cursor + pw + BADGE_R > TOTAL_W - PILL_PAD_X):
+            x_cursor  = PILL_PAD_X
+            fila_pill += 1
 
-            # Badge circular con nº personas (top-right de la card)
-            badge_x = x_end - BADGE_SIZE // 2
-            badge_col, badge_x_off = _x_to_col_offset(badge_x, total_semanas)
-            sid = _shape_span(root, sid, str(personas),
-                              badge_col, ROW_ROLES, badge_x_off,
-                              badge_col, ROW_ROLES, badge_x_off + BADGE_SIZE,
-                              BADGE_SIZE,
-                              "FFFFFF", "default", color, 700, True,
-                              geom="ellipse")
+        sid = _shape_abs(root, sid, rol["_label"],
+                         row=fila_pill, x=x_cursor, y=PILL_GAP_V,
+                         w=pw, h=PILL_H,
+                         color=color, text_color="FFFFFF",
+                         font_sz=780, bold=True, geom="roundRect", adj="50000")
 
-    # ── 2. KICK OFF (col B, filas MES → SPRINT, span vertical) ───────────
+        # Badge número
+        bx = x_cursor + pw - BADGE_R // 2
+        by = PILL_GAP_V - BADGE_R // 2
+        sid = _shape_abs(root, sid, str(rol["personas"]),
+                         row=fila_pill, x=bx, y=by,
+                         w=BADGE_R, h=BADGE_R,
+                         color="10B981", text_color="FFFFFF",
+                         font_sz=620, bold=True, geom="ellipse")
+
+        x_cursor += pw + PILL_GAP_H
+
+    # ── 3. CARD DE INFO DEL PROYECTO (col A, span filas MES→SPRINT) ───────
+    # Calcular altura total del card: meses + semanas (opcional) + sprints
+    if sin_semanas:
+        info_h = ROW_HDR_EMU + ROW_SPRINT_EMU
+    else:
+        info_h = ROW_HDR_EMU + ROW_SUB_EMU + ROW_SPRINT_EMU
+
+    info_h -= PADDING * 2   # pequeño margen
+
+    # Fondo del card
+    sid = _shape_abs(root, sid, "",
+                     row=ROW_MES, x=PADDING, y=PADDING,
+                     w=COL_A_EMU - PADDING*2, h=info_h,
+                     color=COLOR_INFO_BG, text_color=COLOR_INFO_BG,
+                     geom="roundRect", adj="17948",
+                     borde=COLOR_INFO_BOR)
+
+    # Textos del card (todos dentro de ROW_MES con offsets Y)
+    _txt_y = PADDING * 3
+
+    # "INFORMACIÓN DEL PROYECTO"
+    sid = _shape_abs(root, sid, "INFORMACIÓN DEL PROYECTO",
+                     row=ROW_MES, x=PADDING*3, y=_txt_y,
+                     w=COL_A_EMU - PADDING*5, h=ROW_HDR_EMU // 2,
+                     color=COLOR_INFO_BG, text_color="8B5CF6",
+                     font_sz=640, bold=False, geom="rect")
+    _txt_y += ROW_HDR_EMU // 2 + PADDING
+
+    # Nombre del proyecto
+    sid = _shape_abs(root, sid, meta["nombre_proyecto"],
+                     row=ROW_MES, x=PADDING*3, y=_txt_y,
+                     w=COL_A_EMU - PADDING*5, h=ROW_HDR_EMU,
+                     color=COLOR_INFO_BG, text_color=COLOR_TITULO,
+                     font_sz=1000, bold=True, geom="rect")
+    _txt_y += ROW_HDR_EMU + PADDING
+
+    # Torre
+    if meta["torre"]:
+        sid = _shape_abs(root, sid, f"□ {meta['torre']}",
+                         row=ROW_MES, x=PADDING*3, y=_txt_y,
+                         w=COL_A_EMU - PADDING*5, h=ROW_SUB_EMU,
+                         color=COLOR_INFO_BG, text_color="8B5CF6",
+                         font_sz=750, bold=False, geom="rect")
+        _txt_y += ROW_SUB_EMU + PADDING
+
+    # ID
+    if meta["id_proyecto"]:
+        sid = _shape_abs(root, sid, f"ID: {meta['id_proyecto']}",
+                         row=ROW_MES, x=PADDING*3, y=_txt_y,
+                         w=COL_A_EMU - PADDING*5, h=ROW_SUB_EMU,
+                         color=COLOR_INFO_BG, text_color=COLOR_SUBTITULO,
+                         font_sz=720, bold=False, geom="rect")
+
+    # ── 4. KICK OFF (col B, fila MES) ──────────────────────────────────────
     sid = _shape(root, sid, "Kick Off",
-                 COL_KO, ROW_MES, COL_KO, ROW_SPRINT,
-                 COLOR_KICKOFF, "default", "FFFFFF", 900, True)
+                 COL_KO, ROW_MES, COL_KO, ROW_MES,
+                 COLOR_KO, "FFFFFF", bold=True, font_sz=900,
+                 col_w=COL_B_EMU, row_h=ROW_HDR_EMU)
 
-    # ── S0 (debajo de Kick Off, en fila SEMANA si existe) ─────────────────
     if ROW_SEMANA is not None:
         sid = _shape(root, sid, "S0",
                      COL_KO, ROW_SEMANA, COL_KO, ROW_SEMANA,
-                     COLOR_SEMANA, "default", "44546A", 800)
+                     COLOR_SEMANA_BG, COLOR_SEMANA_TX, bold=False, font_sz=800,
+                     col_w=COL_B_EMU, row_h=ROW_SUB_EMU)
 
-    # ── Sprint 0 (debajo de Kick Off, en fila SPRINT) ─────────────────────
     sid = _shape(root, sid, "Sprint 0",
                  COL_KO, ROW_SPRINT, COL_KO, ROW_SPRINT,
-                 COLOR_SPRINT, "default", "FFFFFF", 800)
+                 COLOR_SPRINT, "FFFFFF", bold=True, font_sz=800,
+                 col_w=COL_B_EMU, row_h=ROW_SPRINT_EMU)
 
-    # ── 3. MESES ──────────────────────────────────────────────────────────
+    # ── 5. MESES ───────────────────────────────────────────────────────────
     col_cur = COL_S1
     for m in range(math.ceil(total_semanas / SEMANAS_POR_MES)):
         col_end = min(col_cur + SEMANAS_POR_MES - 1, COL_S1 + total_semanas - 1)
         sid = _shape(root, sid, f"Mes {m+1}",
                      col_cur, ROW_MES, col_end, ROW_MES,
-                     COLOR_MES, "default", "FFFFFF", 900, True,
-                     row_height_emu=ROW_HDR_EMU)
+                     COLOR_MES, "FFFFFF", bold=True, font_sz=950,
+                     row_h=ROW_HDR_EMU)
         col_cur += SEMANAS_POR_MES
 
-    # ── 4. SEMANAS S1..Sn ────────────────────────────────────────────────
+    # ── 6. SEMANAS ─────────────────────────────────────────────────────────
     if ROW_SEMANA is not None:
         for s in range(total_semanas):
-            col = COL_S1 + s
+            c = COL_S1 + s
             sid = _shape(root, sid, f"S{s+1}",
-                         col, ROW_SEMANA, col, ROW_SEMANA,
-                         COLOR_SEMANA, "default", "44546A", 800,
-                         row_height_emu=ROW_SUB_EMU)
+                         c, ROW_SEMANA, c, ROW_SEMANA,
+                         COLOR_SEMANA_BG, COLOR_SEMANA_TX, bold=False, font_sz=800,
+                         row_h=ROW_SUB_EMU)
 
-    # ── 5. SPRINTS 1..N ──────────────────────────────────────────────────
+    # ── 7. SPRINTS ─────────────────────────────────────────────────────────
     sprint_n = 1
     for s in range(0, total_semanas, SEMANAS_POR_SPRINT):
-        col_start = COL_S1 + s
-        col_end   = min(col_start + SEMANAS_POR_SPRINT - 1, COL_S1 + total_semanas - 1)
+        cs = COL_S1 + s
+        ce = min(cs + SEMANAS_POR_SPRINT - 1, COL_S1 + total_semanas - 1)
         sid = _shape(root, sid, f"Sprint {sprint_n}",
-                     col_start, ROW_SPRINT, col_end, ROW_SPRINT,
-                     COLOR_SPRINT, "default", "FFFFFF", 800,
-                     row_height_emu=ROW_SUB_EMU)
+                     cs, ROW_SPRINT, ce, ROW_SPRINT,
+                     COLOR_SPRINT, "FFFFFF", bold=True, font_sz=850,
+                     row_h=ROW_SPRINT_EMU)
         sprint_n += 1
 
-    # ── 6. "PREPARAR AMBIENTES" — siempre primera actividad en Sprint 0 ───
-    # Ocupa toda la duración del Sprint 0 = SEMANAS_POR_SPRINT semanas desde COL_S1
-    # (pero en realidad la barra arranca en col B = COL_KO, que es donde está Sprint 0)
-    prep_row = n_hdr   # primera fila de actividades (0-based)
-    prep_bar_end = COL_KO  # solo ocupa la columna de Kick Off (Sprint 0 = S0 = 1 col)
-
-    # Etiqueta "Preparar Ambientes"
+    # ── 8. PREPARAR AMBIENTES ──────────────────────────────────────────────
+    prep_row = n_hdr
     sid = _shape(root, sid, "Preparar Ambientes",
                  0, prep_row, 0, prep_row,
-                 COLOR_PREP_AMBIENTES, "17948", "FFFFFF", 900, True,
-                 col_width_emu=COL_A_EMU, row_height_emu=ROW_ACT_EMU)
-
-    # Barra en la columna de Sprint 0 (col B = col 1)
+                 COLOR_PREP, "FFFFFF", bold=True, font_sz=900,
+                 col_w=COL_A_EMU, row_h=ROW_ACT_EMU, adj="17948")
+    # Barra de prep en kick-off (col B)
     sid = _shape(root, sid, "",
                  COL_KO, prep_row, COL_KO, prep_row,
-                 COLOR_PREP_AMBIENTES, "50000", "FFFFFF", 900,
-                 row_height_emu=ROW_ACT_EMU)
+                 COLOR_PREP, "FFFFFF",
+                 col_w=COL_B_EMU, row_h=ROW_ACT_EMU, adj="50000")
 
-    # ── 7. ACTIVIDADES del Excel ──────────────────────────────────────────
+    # ── 9. ACTIVIDADES ─────────────────────────────────────────────────────
     for i, act in enumerate(actividades):
-        row   = n_hdr + 1 + i   # +1 porque Preparar Ambientes ocupa la primera
+        row   = n_hdr + 1 + i
         color = BARRA_COLORES[i % len(BARRA_COLORES)]
 
+        # Etiqueta (col A)
         sid = _shape(root, sid, act["torre"],
                      0, row, 0, row,
-                     color, "17948", "FFFFFF", 900, True,
-                     col_width_emu=COL_A_EMU, row_height_emu=ROW_ACT_EMU)
+                     color, "FFFFFF", bold=True, font_sz=900,
+                     col_w=COL_A_EMU, row_h=ROW_ACT_EMU, adj="17948")
 
-        # La barra empieza en COL_S1 (después de Kick Off)
+        # Barra (empieza en COL_S1, no en COL_KO)
         bar_end = COL_S1 + act["semanas"] - 1
         sid = _shape(root, sid, "",
                      COL_S1, row, bar_end, row,
-                     color, "50000", "FFFFFF", 900,
-                     row_height_emu=ROW_ACT_EMU)
+                     color, "FFFFFF",
+                     row_h=ROW_ACT_EMU, adj="50000")
+
+    # ── 10. GESTIÓN DEL PROYECTO ───────────────────────────────────────────
+    gestion_row = n_hdr + 1 + len(actividades)
+    total_fin   = COL_S1 + total_semanas - 1
+    sid = _shape(root, sid, "Gestión del Proyecto",
+                 0, gestion_row, 0, gestion_row,
+                 COLOR_GESTION, "FFFFFF", bold=True, font_sz=900,
+                 col_w=COL_A_EMU, row_h=ROW_ACT_EMU, adj="17948")
+    # Barra de gestión: desde kick-off hasta fin
+    sid = _shape(root, sid, "",
+                 COL_KO, gestion_row, total_fin, gestion_row,
+                 COLOR_GESTION, "FFFFFF",
+                 row_h=ROW_ACT_EMU, adj="50000")
 
     return etree.tostring(root, xml_declaration=True,
                           encoding="UTF-8", standalone=True).decode("utf-8")
 
-# ─── Helper: convertir X absoluto en EMU a (col, offset) ────────────────────
-def _x_to_col_offset(x_emu: int, total_semanas: int):
-    """
-    Dado un X absoluto en EMU desde el borde izquierdo del sheet,
-    devuelve (col_index_0based, offset_dentro_de_esa_col).
-    Col 0 = A (COL_A_EMU), col 1 = B (COL_SEMANA_EMU), col 2+ = semanas (COL_SEMANA_EMU).
-    """
-    if x_emu < COL_A_EMU:
-        return 0, x_emu
-    x_emu -= COL_A_EMU
-    col = 1 + x_emu // COL_SEMANA_EMU
-    off = x_emu % COL_SEMANA_EMU
-    return int(col), int(off)
 
-# ─── Shape con span horizontal usando col+offset para from y to ─────────────
-def _shape_span(parent, sid, text,
-                col_from, row_from, x_off_from,
-                col_to,   row_from2, x_off_to,
-                row_h_emu,
-                color, adj="default",
-                text_color="FFFFFF", font_size=800, bold=False,
-                geom="roundRect"):
-    """Shape donde from y to se especifican como (col, row, x_offset_emu)."""
-    XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-    A   = "http://schemas.openxmlformats.org/drawingml/2006/main"
-
-    anchor = etree.SubElement(parent, f"{{{XDR}}}twoCellAnchor", editAs="oneCell")
-
-    frm = etree.SubElement(anchor, f"{{{XDR}}}from")
-    etree.SubElement(frm, f"{{{XDR}}}col").text    = str(col_from)
-    etree.SubElement(frm, f"{{{XDR}}}colOff").text = str(int(x_off_from))
-    etree.SubElement(frm, f"{{{XDR}}}row").text    = str(row_from)
-    etree.SubElement(frm, f"{{{XDR}}}rowOff").text = str(PADDING)
-
-    to = etree.SubElement(anchor, f"{{{XDR}}}to")
-    etree.SubElement(to, f"{{{XDR}}}col").text    = str(col_to)
-    etree.SubElement(to, f"{{{XDR}}}colOff").text = str(int(x_off_to))
-    etree.SubElement(to, f"{{{XDR}}}row").text    = str(row_from)
-    etree.SubElement(to, f"{{{XDR}}}rowOff").text = str(int(row_h_emu))
-
-    return _fill_shape(anchor, sid, text, color, adj, text_color, font_size, bold, geom)
-
-# ─── Shape estándar con col_from/col_to ──────────────────────────────────────
+# ── _shape: alineada a celdas (twoCellAnchor) ────────────────────────────────
 def _shape(parent, sid, text,
            col_from, row_from, col_to, row_to,
-           color, adj="default", text_color="FFFFFF",
-           font_size=900, bold=False,
-           col_width_emu=COL_SEMANA_EMU,
-           row_height_emu=ROW_ACT_EMU):
-
+           color, text_color="FFFFFF",
+           bold=False, font_sz=900,
+           col_w=COL_SEM_EMU, row_h=ROW_ACT_EMU,
+           adj="default"):
     XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-    A   = "http://schemas.openxmlformats.org/drawingml/2006/main"
-
     anchor = etree.SubElement(parent, f"{{{XDR}}}twoCellAnchor", editAs="oneCell")
 
     frm = etree.SubElement(anchor, f"{{{XDR}}}from")
@@ -401,21 +467,69 @@ def _shape(parent, sid, text,
 
     to = etree.SubElement(anchor, f"{{{XDR}}}to")
     etree.SubElement(to, f"{{{XDR}}}col").text    = str(col_to)
-    etree.SubElement(to, f"{{{XDR}}}colOff").text = str(col_width_emu - PADDING)
+    etree.SubElement(to, f"{{{XDR}}}colOff").text = str(col_w - PADDING)
     etree.SubElement(to, f"{{{XDR}}}row").text    = str(row_to)
-    etree.SubElement(to, f"{{{XDR}}}rowOff").text = str(row_height_emu - PADDING)
+    etree.SubElement(to, f"{{{XDR}}}rowOff").text = str(row_h - PADDING)
 
-    return _fill_shape(anchor, sid, text, color, adj, text_color, font_size, bold)
+    return _fill_sp(anchor, sid, text, color, text_color, font_sz, bold, adj)
 
-# ─── Rellena el interior de un anchor con sp, spPr, txBody ──────────────────
-def _fill_shape(anchor, sid, text, color, adj, text_color, font_size, bold,
-                geom="roundRect"):
+
+# ── _shape_abs: coordenadas absolutas dentro de una fila ─────────────────────
+def _shape_abs(parent, sid, text,
+               row, x, y, w, h,
+               color, text_color="FFFFFF",
+               font_sz=800, bold=True,
+               geom="roundRect", adj="default",
+               subtitulo=None, sub_sz=800, sub_color="6B7280",
+               borde=None):
+    XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+    anchor = etree.SubElement(parent, f"{{{XDR}}}twoCellAnchor", editAs="oneCell")
+
+    col_f, xoff_f = _x_to_col(int(x))
+    col_t, xoff_t = _x_to_col(int(x + w))
+
+    frm = etree.SubElement(anchor, f"{{{XDR}}}from")
+    etree.SubElement(frm, f"{{{XDR}}}col").text    = str(col_f)
+    etree.SubElement(frm, f"{{{XDR}}}colOff").text = str(xoff_f)
+    etree.SubElement(frm, f"{{{XDR}}}row").text    = str(row)
+    etree.SubElement(frm, f"{{{XDR}}}rowOff").text = str(int(y))
+
+    to = etree.SubElement(anchor, f"{{{XDR}}}to")
+    etree.SubElement(to, f"{{{XDR}}}col").text    = str(col_t)
+    etree.SubElement(to, f"{{{XDR}}}colOff").text = str(xoff_t)
+    etree.SubElement(to, f"{{{XDR}}}row").text    = str(row)
+    etree.SubElement(to, f"{{{XDR}}}rowOff").text = str(int(y + h))
+
+    return _fill_sp(anchor, sid, text, color, text_color, font_sz, bold, adj, geom,
+                    subtitulo=subtitulo, sub_sz=sub_sz, sub_color=sub_color, borde=borde)
+
+
+def _x_to_col(x_emu: int):
+    """Convierte EMU absoluto (desde el borde izquierdo) a (col, offset)."""
+    if x_emu <= 0:
+        return 0, 0
+    if x_emu <= COL_A_EMU:
+        return 0, int(x_emu)
+    x = x_emu - COL_A_EMU
+    if x <= COL_B_EMU:
+        return 1, int(x)
+    x -= COL_B_EMU
+    col = 2 + x // COL_SEM_EMU
+    off = x % COL_SEM_EMU
+    return int(col), int(off)
+
+
+# ── _fill_sp ──────────────────────────────────────────────────────────────────
+def _fill_sp(anchor, sid, text, color, text_color,
+             font_sz, bold, adj="default", geom="roundRect",
+             subtitulo=None, sub_sz=800, sub_color="6B7280",
+             borde=None):
     XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
     A   = "http://schemas.openxmlformats.org/drawingml/2006/main"
 
     sp     = etree.SubElement(anchor, f"{{{XDR}}}sp", macro="", textlink="")
     nvSpPr = etree.SubElement(sp, f"{{{XDR}}}nvSpPr")
-    etree.SubElement(nvSpPr, f"{{{XDR}}}cNvPr", id=str(sid), name=f"shape{sid}")
+    etree.SubElement(nvSpPr, f"{{{XDR}}}cNvPr", id=str(sid), name=f"s{sid}")
     etree.SubElement(nvSpPr, f"{{{XDR}}}cNvSpPr")
 
     spPr     = etree.SubElement(sp, f"{{{XDR}}}spPr")
@@ -426,30 +540,48 @@ def _fill_shape(anchor, sid, text, color, adj, text_color, font_size, bold,
 
     sf = etree.SubElement(spPr, f"{{{A}}}solidFill")
     etree.SubElement(sf, f"{{{A}}}srgbClr", val=color)
-    ln = etree.SubElement(spPr, f"{{{A}}}ln")
-    etree.SubElement(ln, f"{{{A}}}noFill")
+
+    ln = etree.SubElement(spPr, f"{{{A}}}ln", w="12700")
+    if borde:
+        sf_ln = etree.SubElement(ln, f"{{{A}}}solidFill")
+        etree.SubElement(sf_ln, f"{{{A}}}srgbClr", val=borde)
+    else:
+        etree.SubElement(ln, f"{{{A}}}noFill")
 
     txBody = etree.SubElement(sp, f"{{{XDR}}}txBody")
-    etree.SubElement(txBody, f"{{{A}}}bodyPr", wrap="square", rtlCol="0", anchor="ctr")
+    anchor_val = "t" if subtitulo else "ctr"
+    etree.SubElement(txBody, f"{{{A}}}bodyPr",
+                     wrap="square", rtlCol="0", anchor=anchor_val,
+                     lIns="91440", rIns="91440", tIns="45720", bIns="45720")
     etree.SubElement(txBody, f"{{{A}}}lstStyle")
 
-    p = etree.SubElement(txBody, f"{{{A}}}p")
-    etree.SubElement(p, f"{{{A}}}pPr", algn="ctr")
-
     if text:
-        lines = str(text).split("\n")
-        for li, line in enumerate(lines):
-            if li > 0:
-                etree.SubElement(p, f"{{{A}}}br")
-            r    = etree.SubElement(p, f"{{{A}}}r")
-            attrs = {"lang": "es-CO", "sz": str(font_size), "dirty": "0"}
-            if bold:
-                attrs["b"] = "1"
-            rPr = etree.SubElement(r, f"{{{A}}}rPr", **attrs)
-            sf2 = etree.SubElement(rPr, f"{{{A}}}solidFill")
-            etree.SubElement(sf2, f"{{{A}}}srgbClr", val=text_color)
-            etree.SubElement(rPr, f"{{{A}}}latin", typeface="Calibri")
-            etree.SubElement(r, f"{{{A}}}t").text = line
+        p = etree.SubElement(txBody, f"{{{A}}}p")
+        etree.SubElement(p, f"{{{A}}}pPr", algn="l" if subtitulo else "ctr")
+        r     = etree.SubElement(p, f"{{{A}}}r")
+        attrs = {"lang": "es-CO", "sz": str(font_sz), "dirty": "0"}
+        if bold:
+            attrs["b"] = "1"
+        rPr = etree.SubElement(r, f"{{{A}}}rPr", **attrs)
+        sf2 = etree.SubElement(rPr, f"{{{A}}}solidFill")
+        etree.SubElement(sf2, f"{{{A}}}srgbClr", val=text_color)
+        etree.SubElement(rPr, f"{{{A}}}latin", typeface="Calibri")
+        etree.SubElement(r, f"{{{A}}}t").text = text
+
+    if subtitulo:
+        p2 = etree.SubElement(txBody, f"{{{A}}}p")
+        etree.SubElement(p2, f"{{{A}}}pPr", algn="l", spcBef="100000")
+        r2   = etree.SubElement(p2, f"{{{A}}}r")
+        rPr2 = etree.SubElement(r2, f"{{{A}}}rPr",
+                                 lang="es-CO", sz=str(sub_sz), dirty="0")
+        sf3  = etree.SubElement(rPr2, f"{{{A}}}solidFill")
+        etree.SubElement(sf3, f"{{{A}}}srgbClr", val=sub_color)
+        etree.SubElement(rPr2, f"{{{A}}}latin", typeface="Calibri")
+        etree.SubElement(r2, f"{{{A}}}t").text = subtitulo
+
+    if not text and not subtitulo:
+        p = etree.SubElement(txBody, f"{{{A}}}p")
+        etree.SubElement(p, f"{{{A}}}pPr", algn="ctr")
 
     etree.SubElement(anchor, f"{{{XDR}}}clientData")
     return sid + 1
