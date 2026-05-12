@@ -31,7 +31,8 @@ export default function App() {
     setReviewRequested(false)
   }
 
-  const handleReviewRequested = () => {
+  const handleProposalModified = (draft) => {
+    setProposalDraft(draft)
     setReviewRequested(true)
     setChatOpen(true)
   }
@@ -44,7 +45,7 @@ export default function App() {
         open={chatOpen}
         onToggle={() => setChatOpen((current) => !current)}
         proposalDraft={proposalDraft}
-        onReviewRequested={handleReviewRequested}
+        onProposalModified={handleProposalModified}
       />
       <Routes>
         <Route
