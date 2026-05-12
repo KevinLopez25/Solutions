@@ -15,7 +15,11 @@ const DEFAULT_INSTRUCTION =
   '"Angular" → "Desarrollador Full Stack Angular", ' +
   '"Node" o "NodeJS" → "Desarrollador Backend Node.js", ' +
   '"Python" → "Desarrollador Python", ' +
-  '"Golang" o "Go" → "Desarrollador Backend Go". ' +
+  '"Golang" o "Go" → "Desarrollador Backend Go", ' +
+  '".NET" o "Net" → "Desarrollador .NET", ' +
+  '"PHP" → "Desarrollador PHP", ' +
+  '"iOS" → "Desarrollador iOS", ' +
+  '"Android" → "Desarrollador Android". ' +
   'Si dice "desarrollador analista de requerimientos" → "Analista de Requerimientos", ' +
   '"desarrollador arquitecto" → "Arquitecto de Soluciones", ' +
   '"desarrollador scrum master" → "Scrum Master". ' +
