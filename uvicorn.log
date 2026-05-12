@@ -1,0 +1,59 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\camilo.perez\\Desktop\\Solutions\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [15964] using StatReload
+INFO:     Started server process [18568]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+[1m┌─ Base de datos ─────────────────────────────┐[0m
+[1m│[0m  [92m✓[0m  [92mSU BASE DE DATOS ESTA CONECTADA ✅[0m
+[1m│[0m  Host   : localhost:3306
+[1m│[0m  BD     : solutions_db
+[1m│[0m  Usuario: root
+[1m└─────────────────────────────────────────────┘[0m
+
+
+[INFO] GROQ_API_KEY está configurada. Servicio de IA listo.
+
+INFO:     127.0.0.1:49762 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49765 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+[PERFILES] Torres activas  : ['FULLSTACK / DESARROLLO', 'QA']
+[PERFILES] Total perfiles  : 1
+[PERFILES] Slides necesarios: 1
+[PERFILES]   Slide 1: 1 perfiles → centrado único
+[FDA] Torres activas      : ['FULLSTACK / DESARROLLO', 'QA']
+[FDA] Total ítems FDA     : 1
+[FDA] Slides necesarios   : 1
+[CONSIDERACIONES] Torres activas  : ['FULLSTACK / DESARROLLO', 'QA']
+[CONSIDERACIONES] Cliente         : 
+[CONSIDERACIONES] Filial          : Periferia IT Corp
+[CONSIDERACIONES] Pill genéricos  : OFF
+[CONSIDERACIONES] excel_data.consideraciones vacío.
+[CONSIDERACIONES] Desde Excel     : 0
+[CONSIDERACIONES] Total           : 0
+[ENTREGABLES] Usando entregables del Excel del usuario: ['FULLSTACK / DESARROLLO']
+[ENTREGABLES] Slides necesarios: 1
+INFO:     127.0.0.1:52579 - "POST /api/v1/propuesta/generar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62369 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55522 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+[PERFILES] Torres activas  : ['FULLSTACK / DESARROLLO', 'QA']
+[PERFILES] Total perfiles  : 1
+[PERFILES] Slides necesarios: 1
+[PERFILES]   Slide 1: 1 perfiles → centrado único
+[FDA] Torres activas      : ['FULLSTACK / DESARROLLO', 'QA']
+[FDA] Total ítems FDA     : 1
+[FDA] Slides necesarios   : 1
+[CONSIDERACIONES] Torres activas  : ['FULLSTACK / DESARROLLO', 'QA']
+[CONSIDERACIONES] Cliente         : 
+[CONSIDERACIONES] Filial          : Periferia IT Corp
+[CONSIDERACIONES] Pill genéricos  : OFF
+[CONSIDERACIONES] excel_data.consideraciones vacío.
+[CONSIDERACIONES] Desde Excel     : 0
+[CONSIDERACIONES] Total           : 0
+[ENTREGABLES] Usando entregables del Excel del usuario: ['FULLSTACK / DESARROLLO']
+[ENTREGABLES] Slides necesarios: 1
+INFO:     127.0.0.1:50408 - "POST /api/v1/propuesta/generar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55570 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60874 - "POST /api/v1/ai/reemplazar-logo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52509 - "POST /api/v1/ai/modificar-propuesta HTTP/1.1" 500 Internal Server Error
+WARNING:  StatReload detected changes in 'core\groq_client.py'. Reloading...
