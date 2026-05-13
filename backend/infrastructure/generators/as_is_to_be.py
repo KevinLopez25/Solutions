@@ -34,16 +34,22 @@ def _set_shape_text(shape, text):
         a_r = etree.SubElement(a_p, f'{{{PPTX_NS["a"]}}}r')
         r_pr = etree.SubElement(a_r, f'{{{PPTX_NS["a"]}}}rPr')
         r_pr.set('lang', 'es-ES')
-        r_pr.set('sz', '1800')
+        r_pr.set('sz', '900')
         a_t = etree.SubElement(a_r, f'{{{PPTX_NS["a"]}}}t')
         a_t.text = line
 
 
-def _find_next_text_shape(shapes, current_index):
-    for idx in range(current_index + 1, len(shapes)):
-        text = _extract_shape_text(shapes[idx]).strip()
-        if text:
-            return shapes[idx]
+def _find_previous_body_shape(shapes, current_index):
+    for idx in range(current_index - 1, -1, -1):
+        candidate = shapes[idx]
+        name_elem = candidate.find('.//p:cNvPr', namespaces=PPTX_NS)
+        name = name_elem.get('name', '') if name_elem is not None else ''
+        text = _extract_shape_text(candidate).strip()
+        if not text:
+            continue
+        if 'Rectángulo' in name or 'Redondear rectángulo' in name:
+            if len(text) > 20 and text not in {'AS-IS', 'To', '-Be', 'To -Be', 'TO-BE', 'To-Be'}:
+                return candidate
     return None
 
 
@@ -74,10 +80,10 @@ def edit(pptx_bytes, config, catalog_data=None):
     for index, shape in enumerate(shapes):
         text = _extract_shape_text(shape).strip()
         if text == 'AS-IS':
-            target = _find_next_text_shape(shapes, index)
+            target = _find_previous_body_shape(shapes, index)
             _set_shape_text(target, as_is_text)
-        elif text in {'To -Be', 'TO -BE', 'TO-BE', 'To-Be', 'To -Be'}:
-            target = _find_next_text_shape(shapes, index)
+        elif text in {'To', '-Be', 'To -Be', 'TO -BE', 'TO-BE', 'To-Be'}:
+            target = _find_previous_body_shape(shapes, index)
             _set_shape_text(target, to_be_text)
 
     files[slide_path] = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
