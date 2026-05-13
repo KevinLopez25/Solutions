@@ -10,6 +10,7 @@ from core.config import settings
 from domain.propuesta.entities import GenerarPropuestaRequest, GenerarPropuestaResponse
 from infrastructure import generators as orchestrator
 from infrastructure.repositories.catalogo_repository import build_catalog_data
+from domain.ai.service import generate_as_is_to_be
 
 FILIALES = {
     "corp":  "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx",
@@ -34,6 +35,11 @@ def generar_propuesta(
     catalog_data = build_catalog_data(db)
 
     config = request.model_dump()
+    if request.incluir_as_is_to_be:
+        as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
+        config['as_is_text'] = as_is_text
+        config['to_be_text'] = to_be_text
+
     result_bytes = orchestrator.generate(pptx_bytes, config, catalog_data)
 
     filename = f"Propuesta_Periferia_{filial.upper()}.pptx"

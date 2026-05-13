@@ -50,6 +50,13 @@ EDIT_SYSTEM_PROMPT = (
     "No escribas nada fuera del JSON."
 )
 
+AS_IS_TO_BE_SYSTEM_PROMPT = (
+    "Eres un asistente experto en redactar descripciones AS-IS y TO-BE para propuestas comerciales de TI. "
+    "Tu tarea es mejorar profesionalmente el estado actual y generar un estado futuro aspiracional a partir del contexto del proyecto. "
+    "Responde SOLO con un objeto JSON válido con las claves 'as_is' y 'to_be'. "
+    "No agregues explicaciones adicionales ni ningún texto fuera del JSON."
+)
+
 import posixpath
 
 PPTX_NS = {
@@ -324,3 +331,84 @@ def review_and_modify_proposal(messages: list[dict[str, str]], content_b64: str,
     modified_bytes = _apply_replacements_to_pptx(pptx_bytes, replacements)
     modified_b64 = base64.b64encode(modified_bytes).decode()
     return model_reply, modified_b64
+
+
+def _build_excel_context(excel_data: dict) -> str:
+    if not isinstance(excel_data, dict):
+        return ''
+
+    lines = []
+    if excel_data.get('cliente'):
+        lines.append(f"Cliente: {excel_data.get('cliente')}")
+    if excel_data.get('proyecto'):
+        lines.append(f"Proyecto: {excel_data.get('proyecto')}")
+    if excel_data.get('filename'):
+        lines.append(f"Archivo de estimación: {excel_data.get('filename')}")
+
+    torres = excel_data.get('torres') or []
+    if torres:
+        total_horas = sum((t.get('horas') or 0) for t in torres)
+        lines.append(f"Torres: {len(torres)} torres, {total_horas} horas totales.")
+        for torre in torres[:5]:
+            nombre = torre.get('nombre', '').strip()
+            horas = torre.get('horas', 0)
+            personas = torre.get('personas', 0)
+            if nombre:
+                lines.append(f"- {nombre}: {horas} hrs, {personas} personas")
+
+    perfiles = excel_data.get('perfiles') or []
+    if perfiles:
+        lines.append(f"Perfiles: {len(perfiles)} roles detectados.")
+        for perfil in perfiles[:5]:
+            nombre = perfil.get('perfil', '').strip() or perfil.get('rol', '').strip()
+            torre = perfil.get('torre', '').strip()
+            if nombre:
+                lines.append(f"- {nombre} {f'({torre})' if torre else ''}".strip())
+
+    if excel_data.get('entregables'):
+        entregables = excel_data.get('entregables')[:5]
+        lines.append(f"Entregables: {len(entregables)} grupos.")
+        for item in entregables:
+            if isinstance(item, dict) and item.get('torre'):
+                lines.append(f"- {item.get('torre')}: {', '.join((item.get('items') or [])[:4])}")
+
+    if excel_data.get('consideraciones'):
+        lines.append(f"Consideraciones: {', '.join((excel_data.get('consideraciones') or [])[:5])}")
+    if excel_data.get('fda'):
+        lines.append(f"FDA: {', '.join((excel_data.get('fda') or [])[:5])}")
+
+    return '\n'.join(lines).strip()
+
+
+def generate_as_is_to_be(excel_data: dict, as_is_description: str) -> tuple[str, str]:
+    if not as_is_description or not str(as_is_description).strip():
+        raise ValueError('Descripción de AS-IS requerida.')
+
+    context = _build_excel_context(excel_data)
+    prompt_lines = [
+        'Descripción del estado actual proporcionada por el usuario:',
+        str(as_is_description).strip(),
+    ]
+    if context:
+        prompt_lines.extend(['', 'Contexto del proyecto extraído del Excel:', context])
+    prompt_lines.extend([
+        '', 'Instrucciones:',
+        '- Redacta AS-IS como una descripción profesional y concisa del estado actual del cliente antes de la solución.',
+        '- Genera TO-BE como el estado futuro aspiracional después de integrar la solución, basado en el contexto del proyecto.',
+        '- No uses la descripción del usuario para formar el TO-BE, usa sólo el contexto.',
+        '- Responde únicamente con JSON válido: {"as_is": "...", "to_be": "..."}.',
+    ])
+
+    conversation = [
+        {'role': 'system', 'content': AS_IS_TO_BE_SYSTEM_PROMPT},
+        {'role': 'user', 'content': '\n'.join(prompt_lines)},
+    ]
+
+    model_reply = create_chat_completion(conversation, max_tokens=512)
+    parsed = _find_json_object(model_reply)
+    as_is = str(parsed.get('as_is', '') or '').strip()
+    to_be = str(parsed.get('to_be', '') or '').strip()
+    if not as_is or not to_be:
+        raise RuntimeError('La IA no devolvió AS-IS y TO-BE válidos.')
+
+    return as_is, to_be

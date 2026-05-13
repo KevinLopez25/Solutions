@@ -29,6 +29,8 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     perfilesManuales, setPerfiles,
     opciones, togglePill,
     incluirQa, setIncluirQa,
+    asIsEnabled, setAsIsEnabled,
+    asIsDescription, setAsIsDescription,
     loading, error,
     generate,
     downloadProposal,
@@ -517,6 +519,36 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                 </div>
               </div>
             )}
+
+            <div className="sum-card">
+              <div className="sum-head"><span className="sum-head-title">AS-IS y TO-BE</span></div>
+              <div className="sum-body">
+                <div className="sr" style={{ alignItems: 'center', gap: 12 }}>
+                  <span className="sr-l">📝 Descargar con AS-IS y TO-BE</span>
+                  <div className={`pill${asIsEnabled ? ' on' : ''}`} onClick={() => setAsIsEnabled((v) => !v)}>
+                    <div className="pill-knob" />
+                    <div className="pill-labs">
+                      <span className="pno">NO</span>
+                      <span className="psi">SÍ</span>
+                    </div>
+                  </div>
+                </div>
+                {asIsEnabled && (
+                  <div style={{ marginTop: 12 }}>
+                    <textarea
+                      className="perfil-manual-desc"
+                      placeholder="Describe de forma general el estado actual del cliente antes de la solución..."
+                      value={asIsDescription}
+                      onChange={(e) => setAsIsDescription(e.target.value)}
+                      rows={4}
+                    />
+                    <p style={{ marginTop: 8, fontSize: 13, color: 'var(--muted)', lineHeight: 1.4 }}>
+                      El estado actual se mejorará profesionalmente con IA y se insertará en AS-IS. TO-BE se generará internamente desde el contexto del Excel.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {proposalDraft && (
               <div className="review-block">

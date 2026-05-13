@@ -65,6 +65,8 @@ class GenerarPropuestaRequest(BaseModel):
     opciones: OpcionesPills = OpcionesPills()
     perfiles_manuales: list[PerfilManual] = []
     incluir_qa: bool = True
+    incluir_as_is_to_be: bool = False
+    as_is_description: str = ""
     actividades: list[Actividad] = []
     roles: list[PerfilInput] = []
 

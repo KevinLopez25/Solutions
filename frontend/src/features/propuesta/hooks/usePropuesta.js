@@ -71,10 +71,12 @@ export function usePropuesta() {
   const [torresSeleccionadas, setTorres] = useState([])
   const [perfilesManuales, setPerfiles]  = useState([])
   const [opciones, setOpciones]          = useState(INITIAL_PILLS)
-  const [incluirQa, setIncluirQa]        = useState(false)
-  const [loading, setLoading]            = useState(false)
-  const [error, setError]                = useState(null)
-  const [proposalDraft, setProposalDraft] = useState(null)
+  const [incluirQa, setIncluirQa]          = useState(false)
+  const [asIsEnabled, setAsIsEnabled]      = useState(false)
+  const [asIsDescription, setAsIsDescription] = useState('')
+  const [loading, setLoading]              = useState(false)
+  const [error, setError]                  = useState(null)
+  const [proposalDraft, setProposalDraft]  = useState(null)
   const { download } = useDownload()
 
   function togglePill(key) {
@@ -130,6 +132,11 @@ export function usePropuesta() {
         filename:        String(excelData?.filename || '').trim(),
       }
 
+      const cleanAsIsDescription = String(asIsDescription || '').trim()
+      if (asIsEnabled && !cleanAsIsDescription) {
+        throw new Error('Describe el estado actual para generar AS-IS y TO-BE.')
+      }
+
       const payload = {
         filial,
         excel_data:           cleanExcelData,
@@ -143,6 +150,8 @@ export function usePropuesta() {
           }))
           .slice(0, 50),
         incluir_qa:           Boolean(incluirQa),
+        incluir_as_is_to_be:  Boolean(asIsEnabled),
+        as_is_description:    cleanAsIsDescription,
         actividades:          actividades.slice(0, 100),
         roles:                roles.slice(0, 100),
       }
@@ -186,6 +195,8 @@ export function usePropuesta() {
     perfilesManuales, setPerfiles,
     opciones, togglePill,
     incluirQa, setIncluirQa,
+    asIsEnabled, setAsIsEnabled,
+    asIsDescription, setAsIsDescription,
     loading, error,
     proposalDraft,
     generate,
