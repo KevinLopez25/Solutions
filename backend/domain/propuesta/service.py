@@ -10,7 +10,7 @@ from core.config import settings
 from domain.propuesta.entities import GenerarPropuestaRequest, GenerarPropuestaResponse
 from infrastructure import generators as orchestrator
 from infrastructure.repositories.catalogo_repository import build_catalog_data
-from domain.ai.service import generate_as_is_to_be
+from domain.ai.service import generate_as_is_to_be, generate_roadmap_phases
 
 FILIALES = {
     "corp":  "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx",
@@ -39,6 +39,10 @@ def generar_propuesta(
         as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
         config['as_is_text'] = as_is_text
         config['to_be_text'] = to_be_text
+
+    roadmap_phases = generate_roadmap_phases(config.get('excel_data', {}))
+    if roadmap_phases:
+        config['roadmap_phases'] = roadmap_phases
 
     result_bytes = orchestrator.generate(pptx_bytes, config, catalog_data)
 

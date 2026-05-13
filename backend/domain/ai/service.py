@@ -559,3 +559,104 @@ def generate_as_is_to_be(excel_data: dict, as_is_description: str) -> tuple[str,
         raise RuntimeError('La IA no devolvió AS-IS y TO-BE válidos.')
 
     return as_is, to_be
+
+
+ROADMAP_SYSTEM_PROMPT = (
+    "Eres un asistente experto en generar roadmaps de servicios y soluciones de TI. "
+    "Tu tarea es sintetizar un roadmap de 4 fases a partir de la estimación y el contexto del proyecto. "
+    "Respóndeme SOLO con JSON válido y sin texto adicional fuera del objeto JSON."
+)
+
+
+def _build_roadmap_context(excel_data: dict) -> str:
+    lines = []
+    if not isinstance(excel_data, dict):
+        return ''
+
+    proyecto = excel_data.get('proyecto') or excel_data.get('nombre_proyecto') or ''
+    if proyecto:
+        lines.append(f'Proyecto: {proyecto}')
+
+    cliente = excel_data.get('cliente') or excel_data.get('organizacion') or ''
+    if cliente:
+        lines.append(f'Cliente: {cliente}')
+
+    torres = excel_data.get('torres') or []
+    if torres:
+        lines.append(f'Torres o áreas: {len(torres)}')
+        for torre in torres[:4]:
+            nombre = torre.get('nombre', '').strip() or torre.get('torre', '').strip()
+            if nombre:
+                horas = torre.get('horas', 0)
+                personas = torre.get('personas', 0)
+                lines.append(f'- {nombre}: {horas} hrs, {personas} personas')
+
+    perfiles = excel_data.get('perfiles') or []
+    if perfiles:
+        lines.append(f'Perfiles: {len(perfiles)} roles.')
+        for perfil in perfiles[:4]:
+            nombre = perfil.get('perfil', '').strip() or perfil.get('rol', '').strip()
+            torre = perfil.get('torre', '').strip()
+            if nombre:
+                lines.append(f'- {nombre} {f"({torre})" if torre else ""}'.strip())
+
+    entregables = excel_data.get('entregables') or []
+    if entregables:
+        lines.append(f'Entregables: {len(entregables)} grupos.')
+        for item in entregables[:4]:
+            if isinstance(item, dict) and item.get('torre'):
+                values = ', '.join((item.get('items') or [])[:4])
+                lines.append(f'- {item.get("torre")}: {values}')
+
+    if excel_data.get('consideraciones'):
+        lines.append(f'Consideraciones: {", ".join((excel_data.get("consideraciones") or [])[:4])}')
+    if excel_data.get('fda'):
+        lines.append(f'FDA: {", ".join((excel_data.get("fda") or [])[:4])}')
+
+    return '\n'.join(lines).strip()
+
+
+def _clean_roadmap_phase(phase: dict) -> dict:
+    return {
+        'title': str(phase.get('title', '') or '').strip(),
+        'highlight': str(phase.get('highlight', '') or '').strip(),
+        'description': str(phase.get('description', '') or '').strip(),
+    }
+
+
+def generate_roadmap_phases(excel_data: dict) -> list[dict]:
+    context = _build_roadmap_context(excel_data)
+    prompt_lines = [
+        'Contexto del proyecto extraído del Excel:',
+        context or 'No hay información disponible más allá de la estimación.',
+        '',
+        'Instrucciones:',
+        '- Genera exactamente 4 fases de roadmap basadas en el ciclo de vida de desarrollo de software.',
+        '- Ordena las fases en este flujo: análisis, diseño, codificación, pruebas/despliegue/mantenimiento.',
+        '- Cada fase debe contener un título corto, un texto destacado en negrita y una descripción breve.',
+        '- El título debe ser conciso (1-3 palabras).',
+        '- El texto destacado debe resumir la acción clave en una frase breve.',
+        '- La descripción debe ser clara y apropiada para un roadmap ejecutivo.',
+        '- No agregues explicaciones adicionales ni ningún texto fuera del JSON.',
+        '- Devuelve solo un objeto JSON con la clave "phases".',
+        '',
+        'Formato esperado:',
+        '{"phases": [{"title": "...", "highlight": "...", "description": "..."}, ...]}',
+    ]
+
+    conversation = [
+        {'role': 'system', 'content': ROADMAP_SYSTEM_PROMPT},
+        {'role': 'user', 'content': '\n'.join(prompt_lines)},
+    ]
+
+    model_reply = create_chat_completion(conversation, max_tokens=512)
+    parsed = _find_json_object(model_reply)
+    phases = parsed.get('phases')
+    if not isinstance(phases, list) or len(phases) != 4:
+        raise RuntimeError('La IA no devolvió un roadmap válido de 4 fases.')
+
+    cleaned = [_clean_roadmap_phase(phase) for phase in phases]
+    if any(not item['title'] or not item['highlight'] or not item['description'] for item in cleaned):
+        raise RuntimeError('La IA devolvió fases de roadmap con campos incompletos.')
+
+    return cleaned
