@@ -73,15 +73,27 @@ def _sp_set_x_cx(sp, new_x, new_cx):
     if off is not None: off.attrib['x'] = str(new_x)
     if ext is not None: ext.attrib['cx'] = str(new_cx)
 
+def _sp_get_cx(sp) -> int:
+    spPr = sp.find(f'{{{P}}}spPr')
+    if spPr is None: return 0
+    xfrm = spPr.find(f'{{{A}}}xfrm')
+    if xfrm is None: return 0
+    ext = xfrm.find(f'{{{A}}}ext')
+    return int(ext.attrib.get('cx', 0)) if ext is not None else 0
+
+def _sp_set_x(sp, new_x):
+    spPr = sp.find(f'{{{P}}}spPr')
+    if spPr is None: return
+    xfrm = spPr.find(f'{{{A}}}xfrm')
+    if xfrm is None: return
+    off = xfrm.find(f'{{{A}}}off')
+    if off is not None: off.attrib['x'] = str(new_x)
+
 
 # ══════════════════════════════ carga de datos ════════════════════════════════
 
 def _load_entregables(torres_activas, catalog_data: dict):
-    """
-    Carga entregables desde el catálogo de la BD para las torres activas.
-    """
     entregables_db: list[dict] = catalog_data.get('entregables_db', [])
-    torres_norm    = [_norm(t) for t in torres_activas]
 
     ent_por_torre: dict[str, list[str]] = {
         _norm(g['torre']): g['items']
@@ -98,7 +110,8 @@ def _load_entregables(torres_activas, catalog_data: dict):
                     items = ent_por_torre[k]
                     break
         if items:
-            resultado.append({'torre': torre, 'items': items[:7]})
+            items_limpios = [i for i in items if (i or '').strip()]
+            resultado.append({'torre': torre, 'items': items_limpios[:7]})
 
     print(f'[ENTREGABLES] Torres activas  : {torres_activas}')
     print(f'[ENTREGABLES] Con entregables : {[g["torre"] for g in resultado]}')
@@ -118,7 +131,6 @@ def _get_slide_order(pptx_bytes):
 
 
 def _find_entregables_slide(slides_order, files_dict):
-    """Localiza el slide de Entregables por presencia de ≥2 CuadroTexto de lista."""
     for path in slides_order:
         root = etree.fromstring(files_dict[path])
         names = {
@@ -135,10 +147,6 @@ def _find_entregables_slide(slides_order, files_dict):
 
 
 def _duplicate_slide(files_dict, src_path, insert_after_path):
-    """
-    Duplica src_path e inserta la copia justo después de insert_after_path.
-    Retorna el path del nuevo slide.
-    """
     SLIDE_CT = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
     CT_NS    = 'http://schemas.openxmlformats.org/package/2006/content-types'
 
@@ -224,16 +232,14 @@ def _duplicate_slide(files_dict, src_path, insert_after_path):
 
 # ══════════════════════════════ edición del slide ═════════════════════════════
 
+_ICON_MAX_X = int(SLIDE_WIDTH_EMU * 0.85)  # excluye logo (extremo derecho, ~88%)
+
+
 def _collect_shapes(root):
-    """
-    Recoge, ordenados por X:
-      - titulos : Título 1 con 'Entregables de' en texto
-      - listas  : CuadroTexto 4 / 13 / 17  (cualquier cantidad)
-      - rects   : Rectángulo: esquinas redondeadas …
-    """
     titulos_raw = []
     listas_raw  = []
     rects_raw   = []
+    icons_raw   = []
 
     for sp in root.iter(f'{{{P}}}sp'):
         nvpr = sp.find(f'.//{{{P}}}cNvPr')
@@ -253,13 +259,19 @@ def _collect_shapes(root):
         elif name in ENTREGABLES_LIST_SHAPES:
             listas_raw.append(sp)
 
+    # Íconos: pics que no son fondo (x<=0) ni logo (x>80% del slide)
+    for pic in root.iter(f'{{{P}}}pic'):
+        x = _sp_off_x(pic)
+        if 0 < x < _ICON_MAX_X:
+            icons_raw.append(pic)
+
     return (sorted(titulos_raw, key=_sp_off_x),
             sorted(listas_raw,  key=_sp_off_x),
-            sorted(rects_raw,   key=_sp_off_x))
+            sorted(rects_raw,   key=_sp_off_x),
+            sorted(icons_raw,   key=_sp_off_x))
 
 
 def _clone_col(spTree, src_sp):
-    """Clona un shape, asigna IDs únicos y lo añade al spTree. Retorna el clon."""
     existing_ids = [
         int(el.attrib['id'])
         for el in spTree.iter()
@@ -288,11 +300,20 @@ def _fill_titulo(sp, nombre_torre):
             break
 
 
+def _font_sz(n: int) -> str:
+    """Tamaño de fuente en centésimas de punto según cantidad de ítems."""
+    if n <= 4: return '1000'
+    if n <= 6: return '900'
+    return '800'
+
+
 def _fill_lista(sp, items):
     txb = sp.find(f'{{{P}}}txBody')
     if txb is None: return
 
-    # spAutoFit → normAutofit: la caja no crece; el texto se comprime para caber
+    sz = _font_sz(len(items))
+
+    # normAutofit: PowerPoint comprime el texto si aún no cabe en la caja fija
     bodyPr = txb.find(f'{{{A}}}bodyPr')
     if bodyPr is not None:
         for child in list(bodyPr):
@@ -300,7 +321,6 @@ def _fill_lista(sp, items):
                 bodyPr.remove(child)
         etree.SubElement(bodyPr, f'{{{A}}}normAutofit')
 
-    # Guardar el primer párrafo como plantilla de formato (viñeta Wingdings + color + fuente)
     existing_ps = txb.findall(f'{{{A}}}p')
     template_p  = existing_ps[0] if existing_ps else None
 
@@ -308,13 +328,14 @@ def _fill_lista(sp, items):
         txb.remove(p)
 
     for item in items:
+        if not (item or '').strip():
+            continue
         if template_p is not None:
             new_p = copy.deepcopy(template_p)
-            # Actualizar texto y ajustar tamaño a 11pt en el run principal
             for r_el in new_p.findall(f'{{{A}}}r'):
                 rPr = r_el.find(f'{{{A}}}rPr')
                 if rPr is not None:
-                    rPr.attrib['sz'] = '1100'
+                    rPr.attrib['sz'] = sz
                     rPr.attrib.pop('err', None)
                 t_el = r_el.find(f'{{{A}}}t')
                 if t_el is not None:
@@ -322,53 +343,44 @@ def _fill_lista(sp, items):
                 break
             endPr = new_p.find(f'{{{A}}}endParaRPr')
             if endPr is not None:
-                endPr.attrib['sz'] = '1100'
+                endPr.attrib['sz'] = sz
             txb.append(new_p)
         else:
             p_xml = (f'<a:p xmlns:a="{A}"><a:r>'
-                     f'<a:rPr sz="1100" dirty="0"/>'
-                     f'<a:t>\u2022 {_esc(item)}</a:t>'
+                     f'<a:rPr sz="{sz}" dirty="0"/>'
+                     f'<a:t>• {_esc(item)}</a:t>'
                      f'</a:r></a:p>')
             txb.append(etree.fromstring(p_xml))
 
 
 def _edit_entregables_slide(xml_bytes, chunk):
-    """
-    Edita un slide de Entregables con 0–4 grupos (torres).
-    - 1 col: centrado con métricas de 3 cols.
-    - 2 cols: centrado con métricas de 3 cols.
-    - 3 cols: posiciones del template (sin cambio de X).
-    - 4 cols: clona la 3ª col, reposiciona todo con métricas al 75%.
-    - 0 grupos: elimina todas las columnas.
-    """
     root   = etree.fromstring(xml_bytes)
     spTree = root.find(f'.//{{{P}}}spTree')
     n_use  = min(len(chunk), MAX_PER_SLIDE)
 
-    titulos, listas, rects = _collect_shapes(root)
+    titulos, listas, rects, icons = _collect_shapes(root)
 
-    # ── Si necesitamos 4 columnas y solo hay 3, clonar la última ──────────────
     if n_use == 4 and len(titulos) == 3:
         if rects:   rects.append(_clone_col(spTree, rects[-1]))
         if titulos: titulos.append(_clone_col(spTree, titulos[-1]))
         if listas:  listas.append(_clone_col(spTree, listas[-1]))
+        if icons:   icons.append(_clone_col(spTree, icons[-1]))
 
-    # ── Rellenar columnas activas ──────────────────────────────────────────────
     for i, grupo in enumerate(chunk[:n_use]):
         if i < len(titulos):
             _fill_titulo(titulos[i], grupo['torre'])
         if i < len(listas):
             _fill_lista(listas[i], grupo['items'])
 
-    # ── Eliminar columnas sobrantes ────────────────────────────────────────────
     for i in range(n_use, len(titulos)):
         spTree.remove(titulos[i])
     for i in range(n_use, len(listas)):
         spTree.remove(listas[i])
     for i in range(n_use, len(rects)):
         spTree.remove(rects[i])
+    for i in range(n_use, len(icons)):
+        spTree.remove(icons[i])
 
-    # ── Elegir métricas de layout ──────────────────────────────────────────────
     if n_use == 4:
         pitch    = _ENT4_PITCH;    title_cx = _ENT4_TITLE_CX
         list_cx  = _ENT4_LIST_CX;  list_dx  = _ENT4_LIST_OFF_X
@@ -378,15 +390,17 @@ def _edit_entregables_slide(xml_bytes, chunk):
         list_cx  = _ENT_LIST_CX;   list_dx  = _ENT_LIST_OFF_X
         rect_cx  = _ENT_RECT_CX;   rect_dx  = _ENT_RECT_OFF_X
 
-    # ── Reposicionar: siempre para n≠3, nunca para n==3 (usa el template) ─────
     if n_use != 3 and n_use > 0:
         total_w = (n_use - 1) * pitch + title_cx
         start_x = (SLIDE_WIDTH_EMU - total_w) // 2
         for i in range(n_use):
             tx = start_x + i * pitch
-            if i < len(titulos): _sp_set_x_cx(titulos[i], tx,          title_cx)
+            if i < len(titulos): _sp_set_x_cx(titulos[i], tx,           title_cx)
             if i < len(listas):  _sp_set_x_cx(listas[i],  tx + list_dx, list_cx)
             if i < len(rects):   _sp_set_x_cx(rects[i],   tx + rect_dx, rect_cx)
+            if i < len(icons):
+                icon_cx = _sp_get_cx(icons[i])
+                _sp_set_x(icons[i], tx + (title_cx - icon_cx) // 2)
 
     return etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
 
@@ -394,18 +408,6 @@ def _edit_entregables_slide(xml_bytes, chunk):
 # ══════════════════════════════ entry point ═══════════════════════════════════
 
 def edit(pptx_bytes, config, catalog_data=None):
-    """
-    config = {
-        filial: str,
-        excel_data: {
-            torres: [{nombre, horas}, ...],
-            entregables: [{torre, items:[...]}, ...],  # opcional, del Excel del usuario (col M)
-        },
-        torres_seleccionadas: [...],
-        opciones: { entregables: bool },
-    }
-    catalog_data: dict provisto por el repositorio (reemplaza Generales_para_todos.xlsx).
-    """
     excel_data        = config.get('excel_data') or {}
     excel_torres      = excel_data.get('torres', [])
     excel_entregables = excel_data.get('entregables', [])
@@ -416,29 +418,35 @@ def edit(pptx_bytes, config, catalog_data=None):
     torres_activas = [t['nombre'] for t in excel_torres] if excel_torres else torres_sel
 
     if excel_entregables:
-        # Usar entregables del Excel del usuario (col M de Estimación)
         print(f'[ENTREGABLES] Usando entregables del Excel del usuario: {[e["torre"] for e in excel_entregables]}')
+
+        def _split_excel_items(raw_items):
+            result = []
+            for i in raw_items:
+                for sub in re.split(r'[\r\n]+', i or ''):
+                    sub = sub.strip()
+                    if sub:
+                        result.append(sub)
+            return result[:7]
+
         entregables_grupos = [
-            {'torre': e['torre'], 'items': e['items'][:7]}
+            {'torre': e['torre'], 'items': _split_excel_items(e['items'])}
             for e in excel_entregables
             if e.get('items')
         ]
         if usar_genericos:
-            # Pill ON → complementar con catálogo para torres activas sin entregables del Excel
             torres_con_excel = {_norm(e['torre']) for e in excel_entregables if e.get('items')}
             catalogo = _load_entregables(torres_activas, catalog_data or {})
             for grupo in catalogo:
                 if _norm(grupo['torre']) not in torres_con_excel:
                     entregables_grupos.append(grupo)
     else:
-        # Sin datos del Excel → catálogo por torre (independiente de la pill)
         entregables_grupos = _load_entregables(torres_activas, catalog_data or {})
 
-    # Paginar: máx MAX_PER_SLIDE torres por slide
     chunks = [entregables_grupos[i:i + MAX_PER_SLIDE]
               for i in range(0, len(entregables_grupos), MAX_PER_SLIDE)]
     if not chunks:
-        chunks = [[]]   # garantizar al menos 1 iteración (slide vacío)
+        chunks = [[]]
 
     print(f'[ENTREGABLES] Slides necesarios: {len(chunks)}')
 
@@ -450,10 +458,8 @@ def edit(pptx_bytes, config, catalog_data=None):
     ent_slide_key = _find_entregables_slide(slides_order, files_dict)
     template_xml  = files_dict[ent_slide_key]
 
-    # Primer slide
     files_dict[ent_slide_key] = _edit_entregables_slide(template_xml, chunks[0])
 
-    # Slides adicionales (duplicar desde el template original)
     prev_path = ent_slide_key
     for chunk in chunks[1:]:
         new_path = _duplicate_slide(files_dict, ent_slide_key, prev_path)

@@ -47,11 +47,12 @@ function parseEstimacion(wb) {
     .filter(r => r[12])
     .reduce((acc, r) => {
       const torre = String(r[0] || '').trim()
-      const item  = String(r[12]).trim()
-      if (!torre || !item) return acc
+      if (!torre) return acc
+      const subItems = String(r[12]).split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+      if (!subItems.length) return acc
       const group = acc.find(g => g.torre === torre)
-      if (group) group.items.push(item)
-      else acc.push({ torre, items: [item] })
+      if (group) group.items.push(...subItems)
+      else acc.push({ torre, items: subItems })
       return acc
     }, [])
   return { consideraciones, fda, entregables }
