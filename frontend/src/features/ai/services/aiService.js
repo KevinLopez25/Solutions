@@ -11,3 +11,7 @@ export function modificarPropuesta(payload) {
 export function reemplazarLogo(payload) {
   return api.post('/ai/reemplazar-logo', payload).then((res) => res.data)
 }
+
+export function chatConPropuesta(payload) {
+  return api.post('/ai/chat-propuesta', payload).then((res) => res.data)
+}

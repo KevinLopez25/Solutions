@@ -1,29 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { enviarMensajeIA, modificarPropuesta, reemplazarLogo } from '../services/aiService'
+import { chatConPropuesta, enviarMensajeIA, reemplazarLogo } from '../services/aiService'
 
 const INITIAL_ASSISTANT = {
   role: 'assistant',
   content:
-    '👋 Hola, soy tu asistente de IA. Puedo revisar y corregir nombres de roles en tu propuesta, o reemplazar el logo de la primera diapositiva. Usa los botones de abajo para modificar el documento generado.',
+    'Hola, soy tu asistente de IA para propuestas comerciales.\n\n' +
+    'Cuando tengas una propuesta generada puedes pedirme cosas como:\n' +
+    '• "Revisa y corrige los perfiles"\n' +
+    '• "El perfil de Java está incompleto, corrígelo"\n' +
+    '• "¿Qué perfiles hay en la propuesta?"\n' +
+    '• "Corrige todos los nombres que solo digan una tecnología"\n\n' +
+    'También puedo reemplazar el logo usando el botón de arriba.',
 }
-
-const DEFAULT_INSTRUCTION =
-  'Corrige los nombres de roles que sean ilógicos o incompletos. ' +
-  'Si el nombre es solo una tecnología o lenguaje, complétalo con su rol apropiado: ' +
-  '"Java" o "Java EE" → "Desarrollador Full Stack Java", ' +
-  '"React" o "ReactJS" → "Desarrollador Full Stack React", ' +
-  '"Angular" → "Desarrollador Full Stack Angular", ' +
-  '"Node" o "NodeJS" → "Desarrollador Backend Node.js", ' +
-  '"Python" → "Desarrollador Python", ' +
-  '"Golang" o "Go" → "Desarrollador Backend Go", ' +
-  '".NET" o "Net" → "Desarrollador .NET", ' +
-  '"PHP" → "Desarrollador PHP", ' +
-  '"iOS" → "Desarrollador iOS", ' +
-  '"Android" → "Desarrollador Android". ' +
-  'Si dice "desarrollador analista de requerimientos" → "Analista de Requerimientos", ' +
-  '"desarrollador arquitecto" → "Arquitecto de Soluciones", ' +
-  '"desarrollador scrum master" → "Scrum Master". ' +
-  'No agregues ni elimines perfiles, trabaja solo con los que ya existen en el documento.'
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
 
@@ -33,13 +21,12 @@ function isImageFile(name) {
 }
 
 export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposalModified }) {
-  const [messages, setMessages]       = useState([INITIAL_ASSISTANT])
-  const [input, setInput]             = useState('')
-  const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION)
-  const [loading, setLoading]         = useState(false)
-  const [attachedFile, setAttachedFile] = useState(null) // { name, content, isImage, b64 }
-  const [fileLoading, setFileLoading] = useState(false)
-  const [error, setError]             = useState('')
+  const [messages, setMessages]         = useState([INITIAL_ASSISTANT])
+  const [input, setInput]               = useState('')
+  const [loading, setLoading]           = useState(false)
+  const [attachedFile, setAttachedFile] = useState(null)
+  const [fileLoading, setFileLoading]   = useState(false)
+  const [error, setError]               = useState('')
   const bodyRef   = useRef(null)
   const fileInput = useRef(null)
 
@@ -52,7 +39,7 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [chatMessages, open])
 
-  // ── Chat normal ──────────────────────────────────────────────────────────────
+  // ── Chat principal (con o sin propuesta) ─────────────────────────────────────
   async function handleSend(event) {
     event.preventDefault()
     const trimmed = input.trim()
@@ -65,8 +52,23 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     setLoading(true)
     setError('')
     try {
-      const { reply } = await enviarMensajeIA(next)
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+      if (proposalDraft) {
+        const { reply, content_b64, modified } = await chatConPropuesta({
+          messages:    next,
+          content_b64: proposalDraft.content_b64,
+        })
+        setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+        if (modified && content_b64 && onProposalModified) {
+          onProposalModified({ ...proposalDraft, content_b64 })
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: '✅ Propuesta actualizada. Descárgala para ver los cambios.' },
+          ])
+        }
+      } else {
+        const { reply } = await enviarMensajeIA(next)
+        setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+      }
     } catch (err) {
       const msg = err?.message || 'Error al conectar con IA.'
       setError(msg)
@@ -86,7 +88,7 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     if (isImageFile(file.name)) {
       const reader = new FileReader()
       reader.onload = () => {
-        const b64 = reader.result.split(',')[1] // solo datos base64 sin prefijo
+        const b64 = reader.result.split(',')[1]
         setAttachedFile({ name: file.name, isImage: true, b64, mimeType: file.type })
         setFileLoading(false)
       }
@@ -154,38 +156,13 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     }
   }
 
-  // ── Modificar propuesta con IA ───────────────────────────────────────────────
-  async function handleModifyProposal() {
-    if (!proposalDraft || loading) return
-    const finalInstruction = instruction.trim() || DEFAULT_INSTRUCTION
-    const reviewMessage = { role: 'user', content: `Instrucción: ${finalInstruction}` }
-    setMessages((prev) => [...prev, reviewMessage])
-    setLoading(true)
-    setError('')
-    try {
-      const { reply, content_b64 } = await modificarPropuesta({
-        messages:    chatMessages,
-        content_b64: proposalDraft.content_b64,
-        instruction: finalInstruction,
-      })
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
-      if (onProposalModified) onProposalModified({ ...proposalDraft, content_b64 })
-    } catch (err) {
-      const msg = err?.message || 'Error al modificar la propuesta.'
-      setError(msg)
-      setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className={`chatbot-root ${open ? 'is-open' : 'is-closed'}`}>
       <div className="chatbot-card chatbot-card-modern">
         <div className="chatbot-header">
           <div>
             <strong>Asistente IA</strong>
-            <span>Revisa tu propuesta y ajusta perfiles</span>
+            <span>{proposalDraft ? `Propuesta cargada: ${proposalDraft.filename}` : 'Revisa tu propuesta y ajusta perfiles'}</span>
           </div>
           <button type="button" className="chatbot-toggle" onClick={onToggle} aria-label={open ? 'Cerrar chat' : 'Abrir chat'}>
             {open ? '✕' : '💬'}
@@ -217,7 +194,6 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
                 </div>
               )}
 
-              {/* Previsualización de imagen adjunta */}
               {attachedFile?.isImage && (
                 <img
                   src={`data:${attachedFile.mimeType};base64,${attachedFile.b64}`}
@@ -226,37 +202,16 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
                 />
               )}
 
-              {/* Botón enviar archivo de texto */}
               {attachedFile && !attachedFile.isImage && (
                 <button type="button" className="chatbot-send-file" onClick={handleSendFile} disabled={loading}>
                   {loading ? 'Enviando…' : 'Enviar archivo a IA'}
                 </button>
               )}
 
-              {/* Botón reemplazar logo (solo cuando hay imagen + propuesta) */}
               {attachedFile?.isImage && proposalDraft && (
                 <button type="button" className="chatbot-send-file" onClick={handleReplaceLogo} disabled={loading}>
                   {loading ? 'Reemplazando…' : '🖼️ Reemplazar logo en la propuesta'}
                 </button>
-              )}
-
-              {/* Sección: modificar propuesta con instrucción editable */}
-              {proposalDraft && (
-                <div className="chatbot-proposal-review">
-                  <div><strong>Modificar propuesta:</strong> {proposalDraft.filename}</div>
-                  <textarea
-                    className="chatbot-input"
-                    rows={3}
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    placeholder="Escribe la instrucción para la IA…"
-                    disabled={loading}
-                    style={{ marginTop: 6 }}
-                  />
-                  <button type="button" className="chatbot-send-file" onClick={handleModifyProposal} disabled={loading}>
-                    {loading ? 'Modificando…' : '✏️ Modificar documento con IA'}
-                  </button>
-                </div>
               )}
             </div>
 
@@ -264,7 +219,7 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
             <div className="chatbot-body" ref={bodyRef}>
               {chatMessages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`chatbot-message chatbot-message-${message.role}`}>
-                  <span>{message.content}</span>
+                  <span style={{ whiteSpace: 'pre-line' }}>{message.content}</span>
                 </div>
               ))}
               {loading && (
@@ -282,7 +237,11 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e) } }}
                 rows={3}
-                placeholder="Escribe tu pregunta o instrucción…"
+                placeholder={
+                  proposalDraft
+                    ? 'Ej: "Revisa y corrige los perfiles", "Corrige el perfil de Java"…'
+                    : 'Escribe tu pregunta o instrucción…'
+                }
                 disabled={loading}
               />
               <button className="chatbot-send" type="submit" disabled={loading || !input.trim()} aria-label="Enviar">
@@ -291,9 +250,11 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
             </form>
 
             {error && <div className="chatbot-error">⚠️ {error}</div>}
-            <div className="chatbot-hint">
-              💡 Tip: escribe una instrucción personalizada y presiona "Modificar documento con IA", o adjunta tu logo y usa "Reemplazar logo".
-            </div>
+            {proposalDraft && (
+              <div className="chatbot-hint">
+                💡 Escríbeme en lenguaje natural. Ej: "Corrige todos los perfiles que solo digan una tecnología" o "El perfil .NET está mal, arréglalo".
+              </div>
+            )}
           </>
         )}
       </div>

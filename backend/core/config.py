@@ -11,12 +11,12 @@ class Settings(BaseSettings):
     DB_PORT: int = 3306
     DB_NAME: str = "solutions_db"
     DB_USER: str = "root"
-    DB_PASSWORD: str = "K3v1nL0p32"
+    DB_PASSWORD: str = "periferia"
 
     TEMPLATES_DIR: str = "templates"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
-    GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "groq/compound-mini"
+    GROQ_API_KEY: str = "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"
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

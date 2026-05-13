@@ -50,6 +50,13 @@ EDIT_SYSTEM_PROMPT = (
     "No escribas nada fuera del JSON."
 )
 
+CONVERSATIONAL_SYSTEM_PROMPT = (
+    "Eres un asistente experto en propuestas comerciales de TI. "
+    "Puedes responder preguntas sobre la propuesta cargada. "
+    "Las correcciones de perfiles se aplican automáticamente por código — no necesitas generarlas. "
+    "Responde de forma concisa y en español."
+)
+
 AS_IS_TO_BE_SYSTEM_PROMPT = (
     "Eres un asistente experto en redactar descripciones AS-IS y TO-BE para propuestas comerciales de TI. "
     "Tu tarea es mejorar profesionalmente el estado actual y generar un estado futuro aspiracional a partir del contexto del proyecto. "
@@ -239,6 +246,7 @@ def _find_json_object(text: str) -> dict:
 
 
 def _extract_pptx_text(pptx_bytes: bytes) -> str:
+    """Extrae texto párrafo por párrafo para que la IA pueda identificar nombres de perfil individuales."""
     slides = []
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as z:
         slide_paths = sorted(
@@ -248,13 +256,82 @@ def _extract_pptx_text(pptx_bytes: bytes) -> str:
         for idx, path in enumerate(slide_paths, start=1):
             raw_xml = z.read(path)
             root = etree.fromstring(raw_xml)
-            texts = [t.text or '' for t in root.xpath('.//a:t', namespaces=PPTX_NS)]
-            if texts:
-                slides.append(f"Slide {idx}: {''.join(texts)}")
+            paragraphs = []
+            for p in root.xpath('.//a:p', namespaces=PPTX_NS):
+                runs = [t.text or '' for t in p.xpath('.//a:t', namespaces=PPTX_NS)]
+                para = ''.join(runs).strip()
+                if para:
+                    paragraphs.append(para)
+            if paragraphs:
+                slides.append(f"Slide {idx}:\n" + '\n'.join(paragraphs))
     return '\n\n'.join(slides)
 
 
+# Tecnologías que siempre necesitan el prefijo "Desarrollador" (comparación en minúsculas)
+_TECH_PROFILES = frozenset({
+    'java', 'java ee', 'java se', 'java spring', 'java spring boot',
+    '.net', '.net core', '.net framework', 'net', 'net core', 'net framework',
+    'c#', 'c# .net',
+    'react', 'reactjs', 'react.js', 'react native',
+    'angular', 'angularjs',
+    'vue', 'vuejs', 'vue.js',
+    'node', 'nodejs', 'node.js',
+    'python',
+    'go', 'golang',
+    'php',
+    'ios', 'ios swift',
+    'android',
+    'spring', 'spring boot',
+    'kotlin',
+    'typescript', 'ts',
+    'javascript', 'js',
+    'salesforce',
+    'ruby', 'ruby on rails', 'rails',
+    'rust', 'scala', 'flutter', 'swift', 'django', 'laravel',
+    'mysql', 'sql', 'postgresql', 'oracle sql',
+    'cobol', 'abap', 'sap abap',
+    'power bi', 'powerbi',
+    'full stack', 'fullstack', 'backend', 'frontend',
+    'data engineer', 'ml engineer', 'devops engineer',
+})
+
+# Palabras clave que indican que el texto es de acción (el usuario quiere corregir perfiles)
+_CORRECTION_TRIGGERS = frozenset({
+    'corrige', 'corrije', 'arregla', 'completa', 'modifica', 'revisa',
+    'añade', 'agrega', 'pon', 'coloca', 'falta', 'incompleto',
+})
+
+
+def _is_correction_request(messages: list[dict]) -> bool:
+    """Detecta si el último mensaje del usuario pide corregir/completar perfiles."""
+    last = messages[-1].get('content', '').lower() if messages else ''
+    has_action = any(w in last for w in _CORRECTION_TRIGGERS)
+    has_scope  = any(w in last for w in ('perfil', 'perfiles', 'desarrollador', 'rol', 'roles', 'nombre'))
+    return has_action and has_scope
+
+
+def _build_developer_prefix_replacements(extracted_text: str) -> list[dict]:
+    """Genera reemplazos exactos para perfiles que son tecnologías sin prefijo 'Desarrollador'."""
+    seen = set()
+    replacements = []
+    for line in extracted_text.splitlines():
+        name = line.strip()
+        if not name or len(name) > 60:
+            continue
+        name_lower = name.lower()
+        if name_lower in seen:
+            continue
+        seen.add(name_lower)
+        if name_lower.startswith('desarrollador'):
+            continue
+        if name_lower in _TECH_PROFILES:
+            replacements.append({'from': name, 'to': f'Desarrollador {name}', 'exact': True})
+    return replacements
+
+
 def _apply_replacements_to_pptx(pptx_bytes: bytes, replacements: list[dict[str, str]]) -> bytes:
+    """Aplica reemplazos de texto usando lxml para modificar SOLO nodos <a:t>,
+    evitando corromper atributos, IDs de relaciones u otras partes del XML."""
     if not replacements:
         return pptx_bytes
 
@@ -262,26 +339,56 @@ def _apply_replacements_to_pptx(pptx_bytes: bytes, replacements: list[dict[str, 
         files = {name: zin.read(name) for name in zin.namelist()}
 
     for path, content in list(files.items()):
-        if re.match(r'ppt/slides/slide\d+\.xml$', path):
-            try:
-                text = content.decode('utf-8')
-            except UnicodeDecodeError:
+        if not re.match(r'ppt/slides/slide\d+\.xml$', path):
+            continue
+        try:
+            root = etree.fromstring(content)
+        except etree.XMLSyntaxError:
+            continue
+
+        modified = False
+        # Trabajar a nivel de párrafo para manejar texto dividido en múltiples runs
+        for p_elem in root.xpath('.//a:p', namespaces=PPTX_NS):
+            t_elems = p_elem.xpath('.//a:t', namespaces=PPTX_NS)
+            if not t_elems:
                 continue
-            original_text = text
-            for replacement in replacements:
-                frm = replacement.get('from')
-                to = replacement.get('to')
-                if isinstance(frm, str) and isinstance(to, str) and frm and frm in text:
-                    text = text.replace(frm, to)
-            if text != original_text:
-                files[path] = text.encode('utf-8')
+            combined = ''.join(t.text or '' for t in t_elems)
+            if not combined.strip():
+                continue
+            updated = combined
+            for r in replacements:
+                frm   = r.get('from', '')
+                to    = r.get('to', '')
+                exact = r.get('exact', False)
+                if not (frm and to and isinstance(frm, str) and isinstance(to, str)):
+                    continue
+                if exact:
+                    # Solo reemplaza si el párrafo completo coincide (evita tocar descripciones)
+                    if combined.strip() == frm:
+                        updated = to
+                else:
+                    if frm in updated:
+                        updated = updated.replace(frm, to)
+            if updated != combined:
+                # Poner el texto completo en el primer run y vaciar los demás
+                t_elems[0].text = updated
+                for t in t_elems[1:]:
+                    t.text = ''
+                modified = True
 
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zout:
-        for name, content in files.items():
-            zout.writestr(name, content)
+        if modified:
+            files[path] = etree.tostring(
+                root,
+                xml_declaration=True,
+                encoding='UTF-8',
+                standalone=True,
+            )
 
-    return buffer.getvalue()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for name, data in files.items():
+            zout.writestr(name, data)
+    return buf.getvalue()
 
 
 def chat(messages: list[dict[str, str]]) -> str:
@@ -331,6 +438,46 @@ def review_and_modify_proposal(messages: list[dict[str, str]], content_b64: str,
     modified_bytes = _apply_replacements_to_pptx(pptx_bytes, replacements)
     modified_b64 = base64.b64encode(modified_bytes).decode()
     return model_reply, modified_b64
+
+
+def chat_with_proposal(messages: list[dict], pptx_bytes: bytes | None) -> tuple[str, bytes | None]:
+    """Chat conversacional con la propuesta.
+
+    Si el usuario pide corregir perfiles → aplica regla de código (sin IA):
+      tecnología sin prefijo → 'Desarrollador {tecnología}'.
+    Para cualquier otra pregunta → responde con IA.
+    """
+    extracted_text = _extract_pptx_text(pptx_bytes) if pptx_bytes else ''
+
+    # ── Camino de corrección de perfiles (código puro, sin IA) ──────────────────
+    if pptx_bytes and _is_correction_request(messages):
+        replacements = _build_developer_prefix_replacements(extracted_text)
+        modified_bytes = _apply_replacements_to_pptx(pptx_bytes, replacements) if replacements else None
+
+        if replacements:
+            nombres = ', '.join(r['from'] for r in replacements)
+            reply = (
+                f"Corregí {len(replacements)} perfil(es): {nombres}. "
+                "Les agregué el prefijo 'Desarrollador'. "
+                "Descarga la propuesta para ver los cambios."
+            )
+        else:
+            reply = (
+                "Revisé la propuesta. Todos los perfiles ya tienen el prefijo 'Desarrollador' "
+                "o son roles que no lo necesitan (Arquitecto, Scrum Master, Analista, etc.)."
+            )
+        return reply, modified_bytes
+
+    # ── Camino conversacional (IA responde preguntas) ───────────────────────────
+    text_for_ai = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
+    conversation = [{'role': 'system', 'content': CONVERSATIONAL_SYSTEM_PROMPT}]
+    if text_for_ai:
+        conversation.append({'role': 'user', 'content': f'[PROPUESTA CARGADA]\n{text_for_ai}'})
+        conversation.append({'role': 'assistant', 'content': 'Propuesta cargada. ¿En qué te puedo ayudar?'})
+    conversation.extend(messages)
+
+    model_reply = create_chat_completion(conversation, max_tokens=600)
+    return model_reply, None
 
 
 def _build_excel_context(excel_data: dict) -> str:
