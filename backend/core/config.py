@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     TEMPLATES_DIR: str = "templates"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
-    GROQ_API_KEY: str = "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"
+    GROQ_API_KEY: str = "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"
     GROQ_MODEL: str = "compound-beta-mini"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
 
