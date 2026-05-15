@@ -238,6 +238,7 @@ function parseAnexos(wb) {
           perfil:    String(r[1] ?? '').trim(),
           seniority: String(r[2] ?? '').trim(),
           personas:  typeof r[3] === 'number' ? Math.max(1, r[3]) : (parseFloat(String(r[3]) || '1') || 1),
+          horas:     typeof r[4] === 'number' ? r[4] : (parseFloat(String(r[4] || '0')) || 0),
         }
       } catch (e) {
         console.warn('Error parsing anexo row:', r, e)

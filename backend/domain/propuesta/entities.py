@@ -14,6 +14,7 @@ class PerfilInput(BaseModel):
     torre: str = ""
     seniority: str = ""
     personas: int = 1
+    horas: int = 0
 
 
 class EntregableGrupo(BaseModel):
