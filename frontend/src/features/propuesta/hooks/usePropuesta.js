@@ -122,6 +122,7 @@ export function usePropuesta() {
             perfil:    String(p.perfil || '').trim(),
             seniority: String(p.seniority || '').trim(),
             personas:  Math.max(1, Math.round(Number(p.personas) || 1)),
+            horas:     Math.round(Number(p.horas) || 0),
           })),
         consideraciones: (excelData?.consideraciones || []).map(c => String(c).trim()).filter(c => c.length > 0).slice(0, 20),
         fda:             (excelData?.fda || []).map(f => String(f).trim()).filter(f => f.length > 0).slice(0, 20),
