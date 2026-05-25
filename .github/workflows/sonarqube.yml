@@ -1,0 +1,19 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.30681bbd5a62bac777b4587fa0361dc18b9894ff }}
+          SONAR_HOST_URL: https://TU_SONARQUBE_URL
