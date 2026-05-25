@@ -2,7 +2,9 @@ name: SonarQube Analysis
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
   pull_request:
 
 jobs:
@@ -10,10 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.30681bbd5a62bac777b4587fa0361dc18b9894ff }}
-          SONAR_HOST_URL: https://localhost:9000
+          SONAR_HOST_URL: https://sonarcloud.io
