@@ -23,12 +23,25 @@ class EntregableGrupo(BaseModel):
     items: list[str] = []
 
 
+class AlcanceItem(BaseModel):
+    model_config = ConfigDict(extra='allow')
+    titulo: str
+    descripcion: str = ""
+
+
+class AlcanceTorre(BaseModel):
+    model_config = ConfigDict(extra='allow')
+    torre: str
+    items: list[AlcanceItem] = []
+
+
 class OpcionesPills(BaseModel):
     model_config = ConfigDict(extra='allow')
     perfiles: bool = False
     fda: bool = False
     entregables: bool = False
     consideraciones: bool = False
+    usar_ia_alcances: bool = False
 
 
 class ExcelData(BaseModel):
@@ -40,6 +53,7 @@ class ExcelData(BaseModel):
     consideraciones: list[str] = []
     fda: list[str] = []
     entregables: list[EntregableGrupo] = []
+    alcances: list[AlcanceTorre] = []
     filename: str = ""
 
 

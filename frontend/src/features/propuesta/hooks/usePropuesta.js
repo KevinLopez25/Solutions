@@ -78,6 +78,7 @@ export function usePropuesta() {
   const [error, setError]                  = useState(null)
   const [proposalDraft, setProposalDraft]  = useState(null)
   const { download } = useDownload()
+  var [iaAlcance, setIaAlcance] = useState(false)
 
   function togglePill(key) {
     setOpciones(prev => ({ ...prev, [key]: !prev[key] }))
@@ -130,6 +131,13 @@ export function usePropuesta() {
           torre: String(e.torre || '').trim(),
           items: (e.items || []).map(i => String(i).trim()).filter(i => i.length > 0).slice(0, 10)
         })).slice(0, 10),
+        alcances:        (excelData?.alcances || []).map(a => ({
+          torre: String(a.torre || '').trim(),
+          items: (a.items || []).map(i => ({
+            titulo:      String(i.titulo || '').trim(),
+            descripcion: String(i.descripcion || '').trim(),
+          })).filter(i => i.titulo.length > 0).slice(0, 30),
+        })).filter(a => a.torre.length > 0).slice(0, 20),
         filename:        String(excelData?.filename || '').trim(),
       }
 
@@ -142,7 +150,7 @@ export function usePropuesta() {
         filial,
         excel_data:           cleanExcelData,
         torres_seleccionadas: torresSeleccionadas.filter(t => String(t).trim().length > 0),
-        opciones,
+        opciones:             { ...opciones, usar_ia_alcances: Boolean(iaAlcance) },
         perfiles_manuales:    (efectivosManuales !== undefined ? efectivosManuales : perfilesManuales)
           .filter(p => p && typeof p === 'object' && p.rol)
           .map(p => ({
@@ -202,5 +210,7 @@ export function usePropuesta() {
     proposalDraft,
     generate,
     downloadProposal,
+    iaAlcance, 
+    setIaAlcance,
   }
 }

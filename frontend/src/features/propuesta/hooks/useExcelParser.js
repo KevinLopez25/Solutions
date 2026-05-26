@@ -10,11 +10,13 @@ export function useExcelParser() {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const wb = XLSX.read(e.target.result, { type: 'array' })
+        // cellStyles:true intenta extraer colores de celda (soporte parcial en SheetJS libre)
+        const wb = XLSX.read(e.target.result, { type: 'array', cellStyles: true })
         const resumen    = parseResumen(wb)
         const estimacion = parseEstimacion(wb)
+        const alcances   = parseAlcances(wb, resumen.torres)
         const anexos     = parseAnexos(wb)
-        setExcelData({ ...resumen, ...estimacion, perfiles: anexos })
+        setExcelData({ ...resumen, ...estimacion, alcances, perfiles: anexos })
       } catch (err) {
         setError(err.message)
       }
@@ -56,6 +58,89 @@ function parseEstimacion(wb) {
       return acc
     }, [])
   return { consideraciones, fda, entregables }
+}
+
+// ── Detección de color verde en celda ─────────────────────────────────────────
+// SheetJS libre devuelve colores en cell.s.fgColor / cell.s.bgColor (argb o rgb)
+function _rgbEsVerde(hex) {
+  if (!hex || hex.length < 6) return false
+  // Quitar alpha channel si viene en formato AARRGGBB (8 chars)
+  const rgb = hex.length === 8 ? hex.slice(2) : hex
+  const r = parseInt(rgb.slice(0, 2), 16)
+  const g = parseInt(rgb.slice(2, 4), 16)
+  const b = parseInt(rgb.slice(4, 6), 16)
+  // Verde: canal G dominante (umbral holgado para capturar diferentes tonos)
+  return g > r + 20 && g > b + 20 && g > 80
+}
+
+function _celdaEsVerde(cell) {
+  if (!cell || !cell.s) return false
+  const fg = cell.s.fgColor
+  const bg = cell.s.bgColor
+  const colorFg = fg?.argb || fg?.rgb || ''
+  const colorBg = bg?.argb || bg?.rgb || ''
+  return _rgbEsVerde(colorFg) || _rgbEsVerde(colorBg)
+}
+
+// ── Parseo de alcances desde hoja Estimación ─────────────────────────────────
+// Estrategia de detección de fila separadora de torre:
+//   1. Celda A tiene color verde (detectado via cellStyles).
+//   2. Fallback: texto de col A coincide con un nombre de torre conocido
+//      Y la col B está vacía (las filas de contenido siempre tienen descripción en B).
+function parseAlcances(wb, torres = []) {
+  const ws = wb.Sheets['Estimación'] || wb.Sheets['Estimacion']
+  if (!ws) return []
+
+  const rangeStr = ws['!ref']
+  if (!rangeStr) return []
+  const range = XLSX.utils.decode_range(rangeStr)
+
+  // Set de nombres de torres normalizados para el fallback
+  const torresNorm = new Set(
+    (torres || []).map(t => (t.nombre || t).trim().toLowerCase())
+  )
+
+  const alcances      = []
+  let   torreActual   = null
+  let   itemsActuales = []
+
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const refA = XLSX.utils.encode_cell({ r, c: 0 })
+    const refB = XLSX.utils.encode_cell({ r, c: 1 })
+    const cellA = ws[refA]
+    const cellB = ws[refB]
+
+    const textoA = cellA ? String(cellA.v ?? '').trim() : ''
+    const textoB = cellB ? String(cellB.v ?? '').trim() : ''
+
+    if (!textoA) continue
+
+    // ── Determinar si es fila separadora de torre ────────────────────────
+    const verdeDetectado = _celdaEsVerde(cellA)
+    const esFallbackTorre =
+      torresNorm.has(textoA.toLowerCase()) && !textoB
+
+    const esCabeceraTorre = verdeDetectado || esFallbackTorre
+
+    if (esCabeceraTorre) {
+      // Guardar la torre anterior antes de empezar la nueva
+      if (torreActual && itemsActuales.length > 0) {
+        alcances.push({ torre: torreActual, items: itemsActuales })
+      }
+      torreActual   = textoA
+      itemsActuales = []
+    } else if (torreActual) {
+      // Fila de contenido: col A = título del proceso, col B = descripción
+      itemsActuales.push({ titulo: textoA, descripcion: textoB })
+    }
+  }
+
+  // Guardar la última torre
+  if (torreActual && itemsActuales.length > 0) {
+    alcances.push({ torre: torreActual, items: itemsActuales })
+  }
+
+  return alcances
 }
 
 function parseAnexos(wb) {
