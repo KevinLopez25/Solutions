@@ -18,7 +18,11 @@ Lógica FDA:
   - Si la torre es QA → ocultar card verde de QA (ya está como torre)
 """
 
-import copy, io, re, zipfile, unicodedata
+import copy
+import io
+import re
+import zipfile
+import unicodedata
 from lxml import etree
 
 A  = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -220,7 +224,7 @@ def _set_bullet_shapes(root, items):
                             bodyPr.remove(el)
                     # Agregar normAutofit para reducir fuente si es necesario
                     etree.SubElement(bodyPr, f'{{{A}}}normAutofit')
-                    
+
                     # Rellenar el texto
                     all_t = txb.findall(f'.//{{{A}}}t')
                     if all_t:
@@ -304,7 +308,6 @@ def _find_desc_in_catalog(rol, perf_db):
     Prioridad: coincidencia exacta → parcial (substring) → similitud por tokens.
     """
     rol_clean = _clean_inline_text(rol)
-    rol_norm = _norm(rol_clean)
 
     # Variantes comunes: en Excel a veces viene "React" pero en catálogo "Desarrollador React"
     variants = {rol_clean}
@@ -850,7 +853,7 @@ def _fill_qa_card(sp, lines):
     txb = sp.find(f'{{{P}}}txBody')
     if txb is None:
         return
-    
+
     # Configurar responsividad del texto
     bodyPr = txb.find(f'{{{A}}}bodyPr')
     if bodyPr is None:
@@ -863,7 +866,7 @@ def _fill_qa_card(sp, lines):
             bodyPr.remove(el)
     # Usar spAutoFit para expandir el cuadro si hay muchos ítems
     etree.SubElement(bodyPr, f'{{{A}}}spAutoFit')
-    
+
     paras = txb.findall(f'{{{A}}}p')
     template_para = paras[0] if paras else None
     for para in paras:

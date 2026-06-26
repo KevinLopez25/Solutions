@@ -41,7 +41,15 @@ def _set_title_text(shape, text: str):
         lines = ['']
     for line in lines:
         p = etree.SubElement(tx_body, f'{{{PPTX_NS["a"]}}}p')
+        p_pr = etree.SubElement(p, f'{{{PPTX_NS["a"]}}}pPr')
+        p_pr.set('algn', 'ctr')
         r = etree.SubElement(p, f'{{{PPTX_NS["a"]}}}r')
+        r_pr = etree.SubElement(r, f'{{{PPTX_NS["a"]}}}rPr')
+        r_pr.set('sz', '1200')
+        r_fonts = etree.SubElement(r_pr, f'{{{PPTX_NS["a"]}}}rFonts')
+        r_fonts.set('ascii', 'Calibri')
+        r_fonts.set('hAnsi', 'Calibri')
+        r_fonts.set('cs', 'Calibri')
         t = etree.SubElement(r, f'{{{PPTX_NS["a"]}}}t')
         t.text = line
 
@@ -112,7 +120,7 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data: dict) -> bytes:
         body_shape_1, body_shape_2 = body_shapes
 
         _set_title_text(title_shape, phase.get('title', ''))
-        _set_shape_text(body_shape_1, phase.get('highlight', ''), bold=True, size=900)
+        _set_shape_text(body_shape_1, phase.get('highlight', ''), bold=True, size=800)
         _set_shape_text(body_shape_2, phase.get('description', ''), bold=False, size=900)
 
     files[SLIDE_PATH] = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)

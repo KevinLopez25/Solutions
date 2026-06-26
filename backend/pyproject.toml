@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 88
+exclude = ["__pycache__", "build", "dist", "frontend", "node_modules", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90"]
+ignore = ["E501", "C901", "E402", "E401", "E701", "E702", "E741", "W291", "W292", "W293"]
+exclude = ["__pycache__", "build", "dist", "frontend", "node_modules", ".venv"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--strict-markers --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml"

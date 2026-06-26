@@ -55,7 +55,6 @@ ROW_SUB_EMU     =   285_750
 ROW_SPRINT_EMU  =   285_750
 ROW_ACT_EMU     =   314_325
 
-MAX_PILLS_POR_FILA = 8
 
 # ── API pública ───────────────────────────────────────────────────────────────
 def generate_cronograma(config: dict) -> bytes:
@@ -81,7 +80,7 @@ def generate_cronograma(config: dict) -> bytes:
     duracion_meses = round(total_semanas / SEMANAS_POR_MES, 1)
 
     n_roles     = len(roles)
-    filas_pills = max(1, math.ceil(n_roles / MAX_PILLS_POR_FILA)) if n_roles else 0
+    filas_pills = 1 if n_roles else 0  # siempre una sola fila de pills
 
     # ROW 0 = título
     # ROW 1 .. filas_pills = pills
@@ -225,7 +224,6 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
                                 "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"})
     sid = 1
 
-    filas_pills   = meta["filas_pills"]
     ROW_HDR_START = meta["ROW_HDR_START"]
 
     # ── Índices de filas (0-based) ─────────────────────────────────────────
@@ -274,19 +272,28 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
         rol["_pill_w"] = max(300_000, len(label) * 85_000)
         rol["_label"]  = label.strip()
 
-    x_cursor  = PILL_PAD_X
-    fila_pill = 1   # primera fila de pills en 0-based
+    # Garantizar que todos los pills caben en una sola fila (sin wrap)
+    if roles:
+        avail_w    = TOTAL_W - PILL_PAD_X * 2
+        total_gaps = PILL_GAP_H * (len(roles) - 1)
+        total_pw   = sum(r["_pill_w"] for r in roles)
+        if total_pw + total_gaps > avail_w:
+            max_pw = max(300_000, (avail_w - total_gaps) // len(roles))
+            for rol in roles:
+                if rol["_pill_w"] > max_pw:
+                    rol["_pill_w"] = max_pw
+                    max_ch = max(3, max_pw // 85_000 - 2)
+                    lbl = rol["_label"]
+                    if len(lbl) > max_ch:
+                        rol["_label"] = lbl[:max_ch - 1].rstrip() + "…"
+
+    x_cursor = PILL_PAD_X
     for i, rol in enumerate(roles):
         pw    = rol["_pill_w"]
         color = ROLE_COLORS[i % len(ROLE_COLORS)]
 
-        # Wrap si no cabe
-        if i > 0 and (x_cursor + pw + BADGE_R > TOTAL_W - PILL_PAD_X):
-            x_cursor  = PILL_PAD_X
-            fila_pill += 1
-
         sid = _shape_abs(root, sid, rol["_label"],
-                         row=fila_pill, x=x_cursor, y=PILL_GAP_V,
+                         row=1, x=x_cursor, y=PILL_GAP_V,
                          w=pw, h=PILL_H,
                          color=color, text_color="FFFFFF",
                          font_sz=780, bold=True, geom="roundRect", adj="50000")
@@ -295,7 +302,7 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
         bx = x_cursor + pw - BADGE_R // 2
         by = PILL_GAP_V - BADGE_R // 2
         sid = _shape_abs(root, sid, str(rol["personas"]),
-                         row=fila_pill, x=bx, y=by,
+                         row=1, x=bx, y=by,
                          w=BADGE_R, h=BADGE_R,
                          color="10B981", text_color="FFFFFF",
                          font_sz=620, bold=True, geom="ellipse")

@@ -5,6 +5,7 @@ import CronogramaForm from './features/cronograma/components/CronogramaForm'
 import BgCanvas from './components/BgCanvas'
 import Bot3D from './components/Bot3D'
 import ChatBotPanel from './features/ai/components/ChatBotPanel'
+import QualityTestPanel from './components/QualityTestPanel'
 import './assets/styles/global.css'
 
 function CronogramaPage() {
@@ -25,6 +26,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(true)
   const [proposalDraft, setProposalDraft] = useState(null)
   const [reviewRequested, setReviewRequested] = useState(false)
+  const [qualityOpen, setQualityOpen] = useState(false)
 
   const handleDraftGenerated = (draft) => {
     setProposalDraft(draft)
@@ -41,6 +43,14 @@ export default function App() {
     <BrowserRouter>
       <BgCanvas />
       <Bot3D onToggleChat={() => setChatOpen((current) => !current)} />
+      <button
+        className="quality-toggle"
+        type="button"
+        onClick={() => setQualityOpen(true)}
+      >
+        Pruebas calidad proyecto
+      </button>
+      <QualityTestPanel open={qualityOpen} onClose={() => setQualityOpen(false)} />
       <ChatBotPanel
         open={chatOpen}
         onToggle={() => setChatOpen((current) => !current)}
