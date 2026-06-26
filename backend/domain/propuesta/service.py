@@ -36,13 +36,24 @@ def generar_propuesta(
 
     config = request.model_dump()
     if request.incluir_as_is_to_be:
-        as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
-        config['as_is_text'] = as_is_text
-        config['to_be_text'] = to_be_text
+        try:
+            as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
+            config['as_is_text'] = as_is_text
+            config['to_be_text'] = to_be_text
+        except Exception as exc:
+            print(f"[PROPUESTA] No se pudo generar AS-IS/TO-BE: {exc}")
+            config['as_is_text'] = ''
+            config['to_be_text'] = ''
 
-    roadmap_phases = generate_roadmap_phases(config.get('excel_data', {}))
-    if roadmap_phases:
-        config['roadmap_phases'] = roadmap_phases
+    try:
+        roadmap_phases = generate_roadmap_phases(config.get('excel_data', {}))
+        if roadmap_phases:
+            config['roadmap_phases'] = roadmap_phases
+        else:
+            config['roadmap_phases'] = []
+    except Exception as exc:
+        print(f"[PROPUESTA] No se pudo generar roadmap: {exc}")
+        config['roadmap_phases'] = []
 
     result_bytes = orchestrator.generate(pptx_bytes, config, catalog_data)
 

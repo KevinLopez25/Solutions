@@ -21,6 +21,7 @@ def test_generate_chains_generators():
         'infrastructure.generators.as_is_to_be',
         'infrastructure.generators.roadmap',
         'infrastructure.generators.consideraciones',
+        'infrastructure.generators.alcances',
         'infrastructure.generators.cronograma_entregables',
         'infrastructure.generators.cronograma_preview',
         'infrastructure.generators.oferta_economica',
@@ -30,10 +31,11 @@ def test_generate_chains_generators():
          patch('infrastructure.generators.as_is_to_be.edit', side_effect=fake_edit), \
          patch('infrastructure.generators.roadmap.edit', side_effect=fake_edit), \
          patch('infrastructure.generators.consideraciones.edit', side_effect=fake_edit), \
+         patch('infrastructure.generators.alcances.edit', side_effect=fake_edit), \
          patch('infrastructure.generators.cronograma_entregables.edit', side_effect=fake_edit), \
          patch('infrastructure.generators.cronograma_preview.edit', side_effect=fake_edit), \
          patch('infrastructure.generators.oferta_economica.edit', side_effect=fake_edit):
         result = generate(pptx, config, catalog_data)
 
-    assert len(calls) == 7
+    assert len(calls) == 8
     assert result == pptx
