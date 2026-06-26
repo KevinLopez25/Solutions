@@ -26,7 +26,12 @@ Lógica:
   - Slide localizado por contenido (>= 4 grpSp con SHAPE_NAME), no por índice.
 """
 
-import copy, io, math, re, unicodedata, zipfile
+import copy
+import io
+import math
+import re
+import unicodedata
+import zipfile
 from lxml import etree
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'

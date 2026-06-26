@@ -12,7 +12,11 @@ Lógica:
   - Los rectángulos de fondo se mueven/eliminan junto con el título y la lista.
 """
 
-import copy, io, re, zipfile, unicodedata
+import copy
+import io
+import re
+import zipfile
+import unicodedata
 from lxml import etree
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'

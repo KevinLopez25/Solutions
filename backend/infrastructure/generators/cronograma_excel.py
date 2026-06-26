@@ -224,7 +224,6 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
                                 "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"})
     sid = 1
 
-    filas_pills   = meta["filas_pills"]
     ROW_HDR_START = meta["ROW_HDR_START"]
 
     # ── Índices de filas (0-based) ─────────────────────────────────────────

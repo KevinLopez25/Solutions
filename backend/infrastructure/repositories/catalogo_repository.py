@@ -2,7 +2,8 @@
 Repositorio de catálogo: acceso a datos de torres, perfiles,
 consideraciones, entregables y fuera_del_alcance.
 """
-import re, unicodedata
+import re
+import unicodedata
 from sqlalchemy.orm import Session
 
 from infrastructure.models.catalogo import (
@@ -22,7 +23,7 @@ def _norm(s: str) -> str:
 def get_torres(db: Session, solo_activas: bool = True) -> list[Torre]:
     q = db.query(Torre)
     if solo_activas:
-        q = q.filter(Torre.activa == True)
+        q = q.filter(Torre.activa)
     return q.order_by(Torre.nombre).all()
 
 
@@ -65,7 +66,7 @@ def delete_torre(db: Session, torre_id: int) -> bool:
 # ── Perfiles ──────────────────────────────────────────────────────────────────
 
 def get_perfiles(db: Session, torre_id: int | None = None) -> list[Perfil]:
-    q = db.query(Perfil).filter(Perfil.activo == True)
+    q = db.query(Perfil).filter(Perfil.activo)
     if torre_id:
         q = q.filter(Perfil.torre_id == torre_id)
     return q.all()
@@ -102,10 +103,10 @@ def delete_perfil(db: Session, perfil_id: int) -> bool:
 # ── Consideraciones ───────────────────────────────────────────────────────────
 
 def get_consideraciones(db: Session, torre_id: int | None = None) -> list[Consideracion]:
-    q = db.query(Consideracion).filter(Consideracion.activa == True)
+    q = db.query(Consideracion).filter(Consideracion.activa)
     if torre_id is not None:
         q = q.filter(
-            (Consideracion.torre_id == torre_id) | (Consideracion.es_general == True)
+            (Consideracion.torre_id == torre_id) | (Consideracion.es_general)
         )
     return q.order_by(Consideracion.orden).all()
 
@@ -147,7 +148,7 @@ def delete_consideracion(db: Session, consideracion_id: int) -> bool:
 # ── Entregables ───────────────────────────────────────────────────────────────
 
 def get_entregables(db: Session, torre_id: int | None = None) -> list[Entregable]:
-    q = db.query(Entregable).filter(Entregable.activo == True)
+    q = db.query(Entregable).filter(Entregable.activo)
     if torre_id:
         q = q.filter(Entregable.torre_id == torre_id)
     return q.order_by(Entregable.orden).all()
@@ -184,7 +185,7 @@ def delete_entregable(db: Session, ent_id: int) -> bool:
 # ── Fuera del Alcance ─────────────────────────────────────────────────────────
 
 def get_fuera_alcance(db: Session, torre_id: int | None = None) -> list[FueraDelAlcance]:
-    q = db.query(FueraDelAlcance).filter(FueraDelAlcance.activo == True)
+    q = db.query(FueraDelAlcance).filter(FueraDelAlcance.activo)
     if torre_id:
         q = q.filter(FueraDelAlcance.torre_id == torre_id)
     return q.order_by(FueraDelAlcance.orden).all()

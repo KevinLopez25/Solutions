@@ -10,6 +10,10 @@ PPTX_NS = {
 }
 
 
+AS_IS_MARKERS = {'AS-IS', 'As-Is', 'as-is', 'AS IS', 'As Is'}
+TO_BE_MARKERS = {'To', '-Be', 'To -Be', 'TO-BE', 'To-Be', 'to-be', 'To Be', 'TO BE'}
+
+
 def _extract_shape_text(shape):
     return ''.join([t.text or '' for t in shape.findall('.//a:t', namespaces=PPTX_NS)])
 
@@ -79,10 +83,10 @@ def edit(pptx_bytes, config, catalog_data=None):
 
     for index, shape in enumerate(shapes):
         text = _extract_shape_text(shape).strip()
-        if text == 'AS-IS':
+        if text in AS_IS_MARKERS:
             target = _find_previous_body_shape(shapes, index)
             _set_shape_text(target, as_is_text)
-        elif text in {'To', '-Be', 'To -Be', 'TO -BE', 'TO-BE', 'To-Be'}:
+        elif text in TO_BE_MARKERS:
             target = _find_previous_body_shape(shapes, index)
             _set_shape_text(target, to_be_text)
 
