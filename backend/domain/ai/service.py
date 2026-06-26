@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import posixpath
 import re
 import zipfile
 
@@ -63,8 +64,6 @@ AS_IS_TO_BE_SYSTEM_PROMPT = (
     "Responde SOLO con un objeto JSON válido con las claves 'as_is' y 'to_be'. "
     "No agregues explicaciones adicionales ni ningún texto fuera del JSON."
 )
-
-import posixpath
 
 PPTX_NS = {
     'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',

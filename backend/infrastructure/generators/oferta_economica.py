@@ -12,7 +12,8 @@ Reglas:
   - Estilos, colores y bordes de las celdas no se tocan.
 """
 
-import io, zipfile
+import io
+import zipfile
 from lxml import etree
 
 P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
