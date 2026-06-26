@@ -1,5 +1,4 @@
 import zipfile
-import re
 from lxml import etree
 root='templates/CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx'
 with zipfile.ZipFile(root) as z:

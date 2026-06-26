@@ -1,0 +1,7 @@
+[run]
+omit =
+    */tests/*
+    inspect_slide_titles.py
+    inspect_slide_titles2.py
+    server.py
+    run_tests.bat

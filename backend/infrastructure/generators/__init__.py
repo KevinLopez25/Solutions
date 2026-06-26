@@ -12,7 +12,7 @@ Orden de ejecución:
   7. oferta_economica     — Tabla de oferta económica
 """
 from infrastructure.generators import (
-    fda_perfiles, consideraciones, cronograma_entregables, as_is_to_be, 
+    fda_perfiles, consideraciones, cronograma_entregables, as_is_to_be,
     roadmap, oferta_economica, cronograma_preview
 )
 
