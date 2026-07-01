@@ -15,6 +15,7 @@ from domain.ai.service import (
     generate_roadmap_phases,
     fallback_roadmap_phases,
 )
+from domain.propuesta.logo_service import sanitize_pptx
 
 FILIALES = {
     "corp":  "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx",
@@ -82,7 +83,7 @@ def generar_propuesta(
             print(f"[PROPUESTA] Fallback de roadmap también falló: {fallback_exc}")
             config['roadmap_phases'] = []
 
-    result_bytes = orchestrator.generate(pptx_bytes, config, catalog_data)
+    result_bytes = sanitize_pptx(orchestrator.generate(pptx_bytes, config, catalog_data))
 
     filename = f"Propuesta_Periferia_{filial.upper()}.pptx"
     return GenerarPropuestaResponse(

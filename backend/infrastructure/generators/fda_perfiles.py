@@ -230,7 +230,11 @@ def _set_bullet_shapes(root, items):
                     if all_t:
                         all_t[0].text = text
                         for t in all_t[1:]:
-                            t.text = ''
+                            r = t.getparent()
+                            if r is not None:
+                                p = r.getparent()
+                                if p is not None:
+                                    p.remove(r)
 
     def _remove_grp(grp):
         parent = grp.getparent()
@@ -492,8 +496,10 @@ def _hide_shape(sp):
 
     txb = sp.find(f'{{{P}}}txBody')
     if txb is not None:
-        for t in txb.findall(f'.//{{{A}}}t'):
-            t.text = ''
+        for r in txb.findall(f'.//{{{A}}}r'):
+            p = r.getparent()
+            if p is not None:
+                p.remove(r)
 
 
 def _remove_shape(sp):
@@ -778,7 +784,11 @@ def _edit_perfiles_slide(xml_bytes, perfiles):
                     rol_text = _clean_inline_text(p.get('rol'))
                     all_t[0].text = rol_text
                     for t in all_t[1:]:
-                        t.text = ''
+                        r = t.getparent()
+                        if r is not None:
+                            pp = r.getparent()
+                            if pp is not None:
+                                pp.remove(r)
                 _normalize_bodyPr(txb)
 
             # Escribir descripción (máx 2 oraciones para no desbordar el cuadro)

@@ -41,12 +41,60 @@ _INLINE_CY       = 304_800
 _LINE_HEIGHT_EMU = 280_000
 
 
+def _sanitize_empty_runs(files: dict) -> None:
+    """Remove <a:r> runs that contain only an empty <a:t/> — PowerPoint rejects them."""
+    slide_re = re.compile(r'^ppt/slides/slide\d+\.xml$')
+    for path in list(files):
+        if not slide_re.match(path):
+            continue
+        root = etree.fromstring(files[path])
+        changed = False
+        for t in root.findall(f'.//{{{_NS_A}}}t'):
+            if (t.text or '').strip():
+                continue
+            parent_r = t.getparent()
+            if parent_r is None or parent_r.tag != f'{{{_NS_A}}}r':
+                continue
+            grandparent = parent_r.getparent()
+            if grandparent is not None:
+                grandparent.remove(parent_r)
+                changed = True
+        if changed:
+            files[path] = _xml_bytes(root)
+
+
+def _to_png(logo_bytes: bytes, logo_mime: str) -> bytes:
+    """Convierte cualquier imagen a PNG para máxima compatibilidad con PowerPoint."""
+    if logo_mime == 'image/svg+xml':
+        try:
+            import cairosvg
+            return cairosvg.svg2png(bytestring=logo_bytes)
+        except ImportError:
+            pass
+        # Sin cairosvg: embeber SVG directo (PowerPoint 2016+ lo soporta)
+        return logo_bytes
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(logo_bytes)).convert('RGBA')
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        return buf.getvalue()
+    except Exception:
+        return logo_bytes
+
+
 def replace_logo_in_pptx(pptx_bytes: bytes, logo_bytes: bytes, logo_mime: str) -> bytes:
     """Replace all logo placeholders across every slide with the client logo image."""
+    if logo_mime != 'image/svg+xml':
+        logo_bytes = _to_png(logo_bytes, logo_mime)
+        logo_mime  = 'image/png'
+
     ext = _MIME_TO_EXT.get(logo_mime, 'png')
 
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as zin:
         files = {name: zin.read(name) for name in zin.namelist()}
+
+    _sanitize_empty_runs(files)
 
     logo_name = f'logo_client.{ext}'
     logo_path = f'ppt/media/{logo_name}'
@@ -367,3 +415,15 @@ def _add_rel(rels_root, rid, logo_name) -> None:
 
 def _xml_bytes(root) -> bytes:
     return etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+
+
+def sanitize_pptx(pptx_bytes: bytes) -> bytes:
+    """Elimina <a:r> con <a:t/> vacío de todos los slides — PowerPoint los rechaza."""
+    with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as zin:
+        files = {name: zin.read(name) for name in zin.namelist()}
+    _sanitize_empty_runs(files)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for name, data in files.items():
+            zout.writestr(name, data)
+    return buf.getvalue()
