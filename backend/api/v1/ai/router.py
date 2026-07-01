@@ -4,7 +4,8 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from domain.ai.service import chat as ai_chat, chat_with_proposal, replace_logo_in_pptx, review_and_modify_proposal
+from domain.ai.service import chat as ai_chat, chat_with_proposal, review_and_modify_proposal
+from domain.propuesta.logo_service import replace_logo_in_pptx
 
 
 class AIMessage(BaseModel):

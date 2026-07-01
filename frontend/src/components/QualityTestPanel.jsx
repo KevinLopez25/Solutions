@@ -12,11 +12,7 @@ export default function QualityTestPanel({ open, onClose }) {
     setError(null)
     setResult(null)
 
-    const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV)
-      ? 'http://localhost:8000'
-      : ''
-
-    fetch(`${base}/api/v1/quality/run-tests`, { method: 'POST' })
+    fetch('/api/v1/quality/run-tests', { method: 'POST' })
       .then((res) => res.json())
       .then((data) => {
         setResult(data)

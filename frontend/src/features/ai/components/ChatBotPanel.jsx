@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { chatConPropuesta, enviarMensajeIA, reemplazarLogo } from '../services/aiService'
+import { chatConPropuesta, enviarMensajeIA } from '../services/aiService'
 
 const INITIAL_ASSISTANT = {
   role: 'assistant',
@@ -9,8 +9,7 @@ const INITIAL_ASSISTANT = {
     '• "Revisa y corrige los perfiles"\n' +
     '• "El perfil de Java está incompleto, corrígelo"\n' +
     '• "¿Qué perfiles hay en la propuesta?"\n' +
-    '• "Corrige todos los nombres que solo digan una tecnología"\n\n' +
-    'También puedo reemplazar el logo usando el botón de arriba.',
+    '• "Corrige todos los nombres que solo digan una tecnología"',
 }
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
@@ -130,32 +129,6 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     }
   }
 
-  // ── Reemplazar logo con la imagen adjunta ────────────────────────────────────
-  async function handleReplaceLogo() {
-    if (!attachedFile?.isImage || !proposalDraft || loading) return
-    setLoading(true)
-    setError('')
-    const infoMsg = { role: 'user', content: `Reemplazando el logo de la primera diapositiva con: ${attachedFile.name}` }
-    setMessages((prev) => [...prev, infoMsg])
-    try {
-      const { content_b64 } = await reemplazarLogo({
-        content_b64: proposalDraft.content_b64,
-        logo_b64:    attachedFile.b64,
-        logo_mime:   attachedFile.mimeType || 'image/png',
-      })
-      const updated = { ...proposalDraft, content_b64 }
-      if (onProposalModified) onProposalModified(updated)
-      setMessages((prev) => [...prev, { role: 'assistant', content: '✅ Logo reemplazado correctamente en la primera diapositiva. Descarga la propuesta para verlo.' }])
-      setAttachedFile(null)
-    } catch (err) {
-      const msg = err?.message || 'Error al reemplazar el logo.'
-      setError(msg)
-      setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className={`chatbot-root ${open ? 'is-open' : 'is-closed'}`}>
       <div className="chatbot-card chatbot-card-modern">
@@ -205,12 +178,6 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
               {attachedFile && !attachedFile.isImage && (
                 <button type="button" className="chatbot-send-file" onClick={handleSendFile} disabled={loading}>
                   {loading ? 'Enviando…' : 'Enviar archivo a IA'}
-                </button>
-              )}
-
-              {attachedFile?.isImage && proposalDraft && (
-                <button type="button" className="chatbot-send-file" onClick={handleReplaceLogo} disabled={loading}>
-                  {loading ? 'Reemplazando…' : '🖼️ Reemplazar logo en la propuesta'}
                 </button>
               )}
             </div>

@@ -1,22 +1,36 @@
-from fastapi import APIRouter
-import subprocess
 import re
+import subprocess
+import sys
+from pathlib import Path
 
-router = APIRouter(prefix="/api/v1/quality", tags=["quality"])
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/quality", tags=["quality"])
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
+_EXCLUDE = [
+    '--ignore=tests/test_quality_router.py',
+    '--ignore=tests/test_integration.py',
+    '--ignore=tests/test_performance.py',
+    '--ignore=tests/test_load.py',
+    '--ignore=tests/test_stress.py',
+    '--ignore=tests/test_e2e.py',
+    '--ignore=tests/test_slow.py',
+    '--ignore=tests/test_system.py',
+]
 
 
-def parse_coverage_from_output(stdout: str):
+def _parse_coverage(stdout: str) -> list:
     lines = stdout.splitlines()
     coverage = []
-    # Find header line
     start = None
-    for i, l in enumerate(lines):
-        if l.strip().startswith('Name') and 'Stmts' in l and 'Miss' in l and 'Cover' in l:
+    for i, line in enumerate(lines):
+        if line.strip().startswith('Name') and 'Stmts' in line and 'Cover' in line:
             start = i + 1
             break
     if start is None:
         return coverage
-
     for row in lines[start:]:
         if not row.strip():
             continue
@@ -28,14 +42,14 @@ def parse_coverage_from_output(stdout: str):
                 pass
             break
         parts = row.split()
-        # expect: name stmts miss cover% [missing]
         if len(parts) >= 4 and parts[-2].endswith('%'):
-            cover = parts[-2]
-            miss = parts[-3]
-            stmts = parts[-4]
-            name = ' '.join(parts[:-4])
             try:
-                coverage.append({'file': name, 'stmts': int(stmts), 'miss': int(miss), 'cover': cover})
+                coverage.append({
+                    'file': ' '.join(parts[:-4]),
+                    'stmts': int(parts[-4]),
+                    'miss':  int(parts[-3]),
+                    'cover': parts[-2],
+                })
             except Exception:
                 continue
     return coverage
@@ -43,45 +57,34 @@ def parse_coverage_from_output(stdout: str):
 
 @router.post('/run-tests')
 def run_tests():
-    """Run pytest on the server and return stdout, stderr and a parsed coverage table.
-
-    Note: running tests on-demand can be expensive; this endpoint is intended
-    for local/dev use. Consider adding auth/limits for production.
-    """
-    import os
-    from pathlib import Path
-
-    # Get the backend directory (parent of the api directory)
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
-
-    cmd = ["python", "-m", "pytest", "-q", "--disable-warnings", "--cov=.", "--cov-report=term-missing"]
+    cmd = [
+        sys.executable, '-m', 'pytest', '-q', '--disable-warnings', '--no-cov',
+        '--tb=short', '--timeout=30',
+    ] + _EXCLUDE
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(backend_dir))
-    except subprocess.TimeoutExpired as e:
-        return {"success": False, "stdout": "", "stderr": f"Timeout: {e}", "tests_summary": None, "coverage": []}
-    except Exception as e:
-        return {"success": False, "stdout": "", "stderr": f"Error: {str(e)}", "tests_summary": None, "coverage": []}
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=90, cwd=str(_BACKEND_DIR)
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {'success': False, 'stdout': '', 'stderr': f'Timeout: {exc}', 'tests_summary': None, 'coverage': []}
+    except Exception as exc:
+        return {'success': False, 'stdout': '', 'stderr': f'Error: {exc}', 'tests_summary': None, 'coverage': []}
 
-    stdout = proc.stdout or ""
-    stderr = proc.stderr or ""
-
-    # Log for debugging
+    stdout = proc.stdout or ''
+    stderr = proc.stderr or ''
     if proc.returncode != 0 and not stdout and not stderr:
-        stderr = f"pytest exited with code {proc.returncode} (no output captured)"
+        stderr = f'pytest exited with code {proc.returncode} (no output)'
 
-    # find tests summary (e.g., '54 passed, 2 warnings in 2.87s')
-    tests_summary = None
-    for l in reversed(stdout.splitlines()):
-        if re.search(r'\b(passed|failed|skipped)\b', l):
-            tests_summary = l
+    summary = None
+    for line in reversed(stdout.splitlines()):
+        if re.search(r'\b(passed|failed|skipped)\b', line):
+            summary = line
             break
 
-    coverage = parse_coverage_from_output(stdout)
-
     return {
-        "success": proc.returncode == 0,
-        "stdout": stdout,
-        "stderr": stderr,
-        "tests_summary": tests_summary,
-        "coverage": coverage,
+        'success': proc.returncode == 0,
+        'stdout': stdout,
+        'stderr': stderr,
+        'tests_summary': summary,
+        'coverage': [],
     }

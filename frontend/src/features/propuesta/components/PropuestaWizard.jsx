@@ -20,7 +20,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   const [manualDesc, setManualDesc] = useState('')
   const [logoFile, setLogoFile] = useState(null) // { b64, mimeType, name }
   const [applyingLogo, setApplyingLogo] = useState(false)
-  const [logoMsg, setLogoMsg] = useState(null) // { ok: bool, text: string }
+  const [logoMsg, setLogoMsg]           = useState(null)
   const {
     filial, setFilial,
     excelData, setExcelData,
@@ -110,26 +110,6 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     setPerfiles(prev => [...prev, { rol, desc: manualDesc.trim() }])
     setManualRol('')
     setManualDesc('')
-  }
-
-  async function handleApplyLogo() {
-    if (!logoFile || !proposalDraft || applyingLogo) return
-    setApplyingLogo(true)
-    setLogoMsg(null)
-    try {
-      const { content_b64 } = await reemplazarLogo({
-        content_b64: proposalDraft.content_b64,
-        logo_b64: logoFile.b64,
-        logo_mime: logoFile.mimeType,
-      })
-      onDraftGenerated({ ...proposalDraft, content_b64 })
-      setLogoMsg({ ok: true, text: 'Logo aplicado correctamente. Descarga la propuesta para verlo.' })
-    } catch (err) {
-      const detail = err?.response?.data?.detail || err?.message || 'Error al aplicar el logo.'
-      setLogoMsg({ ok: false, text: detail })
-    } finally {
-      setApplyingLogo(false)
-    }
   }
 
   function handleLogoChange(e) {
@@ -615,7 +595,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
               <div className="sum-head"><span className="sum-head-title">Logo de la empresa (opcional)</span></div>
               <div className="sum-body">
                 <div className="sr">
-                  <span className="sr-l"><span>🖼️</span>Se colocará en la primera diapositiva</span>
+                  <span className="sr-l"><span>🖼️</span>Se insertará en todas las diapositivas al generar</span>
                   {logoFile ? (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span className="stag y">{logoFile.name}</span>
@@ -644,19 +624,6 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                     alt="Logo preview"
                     style={{ maxHeight: 64, maxWidth: '100%', marginTop: 8, borderRadius: 6, objectFit: 'contain', display: 'block' }}
                   />
-                )}
-
-                {/* Botón para aplicar el logo a la propuesta ya generada */}
-                {logoFile && proposalDraft && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    style={{ marginTop: 10, width: '100%' }}
-                    onClick={handleApplyLogo}
-                    disabled={applyingLogo}
-                  >
-                    {applyingLogo ? '🖼️ Aplicando logo...' : '🖼️ Aplicar logo a la propuesta'}
-                  </button>
                 )}
 
                 {logoMsg && (
