@@ -419,7 +419,13 @@ def edit(pptx_bytes, config, catalog_data=None):
     opciones          = config.get('opciones', {})
     usar_genericos    = bool(opciones.get('entregables', True))
 
-    torres_activas = [t['nombre'] for t in excel_torres] if excel_torres else torres_sel
+    torres_activas = []
+    if excel_torres:
+        torres_activas.extend([str(t.get('nombre') or '').strip() for t in excel_torres if str(t.get('nombre') or '').strip()])
+    torres_activas.extend([str(t).strip() for t in torres_sel if str(t).strip()])
+    if not torres_activas and excel_entregables:
+        torres_activas.extend([str(e.get('torre') or '').strip() for e in excel_entregables if str(e.get('torre') or '').strip()])
+    torres_activas = list(dict.fromkeys([t for t in torres_activas if t]))
 
     if excel_entregables:
         print(f'[ENTREGABLES] Usando entregables del Excel del usuario: {[e["torre"] for e in excel_entregables]}')

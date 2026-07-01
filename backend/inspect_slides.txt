@@ -1,0 +1,193 @@
+['ppt/slides/slide1.xml', 'ppt/slides/slide2.xml', 'ppt/slides/slide3.xml', 'ppt/slides/slide4.xml', 'ppt/slides/slide5.xml', 'ppt/slides/slide6.xml', 'ppt/slides/slide7.xml', 'ppt/slides/slide8.xml', 'ppt/slides/slide9.xml', 'ppt/slides/slide10.xml', 'ppt/slides/slide11.xml', 'ppt/slides/slide12.xml', 'ppt/slides/slide13.xml', 'ppt/slides/slide14.xml', 'ppt/slides/slide15.xml', 'ppt/slides/slide16.xml', 'ppt/slides/slide17.xml', 'ppt/slides/slide18.xml', 'ppt/slides/slide19.xml', 'ppt/slides/slide21.xml']
+--- ppt/slides/slide1.xml
+   Espacio para poner el título de tu presentación
+   dd de mm de aaaa | ciudad, País.Ref.: xxxxx  Vx.0.0
+--- ppt/slides/slide2.xml
+   Alcanzamos resultados gracias a nuestra experiencia, capacidad analítica y enfoque en el equipo humano.
+   de Periferia IT Group en todo el mundo.
+   + de 1300 colaboradores
+   como proveedores de servicios.
+   Calificación AA+
+   Incrementan el consumo de nuestros servicios.
+   + del 89% de clientes
+   Expertos en tecnología de vanguardia
+   IT Staffing
+   Software factory
+   Quality engineering
+   Technology accelerators
+   Certificaciones
+   ISO27001:2022
+   ISO9001:2015
+   ISO/IEC27032:2023
+   Forma parte de este grupo de clientes que evoluciona sus empresas
+   Desafiamos barreras, brindando respaldo internacional
+   + de 20 años brindando soluciones de tecnología a proyectos y negocios.
+--- ppt/slides/slide3.xml
+   Confidencialidad de la Propuesta
+   El contenido de la presente propuesta es de carácter confidencial entre PERIFERIA IT CORP y XXXXXXXXXX; en caso de utilizar o disponer de la solución, es indispensable una autorización previa firma por el representante legal de PERIFERIA IT CORP.
+--- ppt/slides/slide4.xml
+   Objetivo del Servicio
+   Presentar a XXXXXX  los servicios de xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   AS-IS
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   To-Be
+   La propuesta se presenta de acuerdo con xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+--- ppt/slides/slide5.xml
+   Roadmap del Servicio
+   FINISH
+   XXXXXXX
+   START
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   XXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXXXXX
+--- ppt/slides/slide6.xml
+   Alcance Técnico del Servicio
+   PERIFERIA IT CORP considerará las siguientes funcionalidades:XxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxActividades a realizar por PERIFERIA IT CORP:
+   XXXXXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   XxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--- ppt/slides/slide7.xml
+   Entregables
+   Toda la documentación, informes y avances generados durante la gestión del proyecto se entregan mediante la herramienta Azure Devops, el código fuente y demás artefactos quedan en el repositorio establecido por XXXXXXX. XXXXXXXXXXXX  y PERIFERIA IT CORP acordarán los formatos que deben seguir los entregables.
+   Entregables de Xxxxxx
+   XxxxxxxXxxxxxxXxxxxxxXxxxxxxXxxxxxxXxxxxxxXxxxxxx
+   Entregables de Xxxxxxxx
+   XxxxxxxXxxxxxxXxxxxxxXxxxxxxXxxxxxx
+   Entregables de Xxxxxxxx
+   XxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxxXxxxxxxxxx
+--- ppt/slides/slide8.xml
+   xxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Perfiles
+   xxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxx
+   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--- ppt/slides/slide9.xml
+   Cronograma Aproximado
+   * Proponemos un sprint 0 para realizar las reuniones iniciales – Kickoff y prepararnos para el inicio del proyecto..
+--- ppt/slides/slide10.xml
+   Consideraciones
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+--- ppt/slides/slide11.xml
+   Fuera del Alcance del Servicio
+   El servicio se prestará de acuerdo con la información obtenida hasta el momento; si estas definiciones cambian, las actividades adicionales serán evaluadas mediante la metodología de control de cambios.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Fuera del Alcance Pruebas de Calidad
+   XxxxxxxxxxxxxxxxxxxXxxxxxxxxxxxxxxxxxxxxXxxxxxxxxxxxxxxxxxxxxxxXxxxxxxxxxxxxxxxxxxxxxxx
+   Fuera del Alcance Técnico
+--- ppt/slides/slide12.xml
+   Responsabilidades
+   Garantizar la disponibilidad de cada uno de los recursos asignados al proyecto.
+   Elaborar un plan de trabajo en AZURE DEVOPS con tareas y las fechas estimadas, de acuerdo con el tiempo total fijado en el contrato
+   PERIFERIA IT CORP, en base a los insumos entregados por                          y para el correcto desarrollo del proyecto se elaborará y administrará la matriz de riesgos y recomendará alternativas de mitigación de riesgo.
+   Las entregas de parte de PERIFERIA IT CORP se deben realizar técnicamente a las personas definidas por                        mediante una sesión de entendimiento.
+   Una vez terminado el desarrollo PERIFERIA IT CORP notificará formalmente, para que	                      efectúe pruebas, si transcurridos quince (15) días calendario no se recibe ninguna notificación del proceso de pruebas, PERIFERIA IT CORP dará por entregado a satisfacción el producto
+   No podrá contratar directa o indirectamente al personal de PERIFERIA IT CORP para la realización de alguna labor relacionada, por un término no menor de dos (2) años después de la terminación del proyecto
+   Será responsable de informar oficialmente a través de la Gerencia del Proyecto, los cambios o ajustes a implementar.
+   <<Logo Cliente>>
+   <<Logo Cliente>>
+   <<Logo Cliente>>
+   <<Logo Cliente>>
+--- ppt/slides/slide13.xml
+   Metodología Ágil
+   DEFINICIÓN DE LAVISIÓN DEL PROYECTO
+   CONFIRMACIÓNEQUIPO SCRUM
+   CONSTRUCCIÓN DEPRODUCT BACKLOG
+   PRIORIZACIÓN DEPRODUCT BACKLOG
+   DEFINICIÓN DE ARQUITECTURA DE PRODUCTO
+   RETROSPECTIVADEL SPRINT
+   REVISIÓNDEL SPRINT
+   SPRINT Y DAILY
+   PLANEACIÓNDEL SPRINT
+   PRIORIZACIÓN DEHISTORIAS DE USUARIO
+   ENVÍO DE ENTREGABLESAL CLIENTE
+   CIERRE DEL PROYECTO
+   RETROSPECTIVADEL PROYECTO
+   CÓMO LO REALIZAMOS…
+   Nuestro modelo permite alcanzar resultados eficientes y evolutivos en intervalos cortos de tiempo, orientados a la necesidad del negocio y expectativa de nuestro cliente.
+   LOS PROTAGONISTAS
+   Scrum Máster
+   CLIENTE
+   Product Owner
+   Stakeholders
+   La metodología de trabajo manejada será un esquema flexible debido a que durante la ejecución del proyecto el usuario final puede requerir incorporar alguna funcionalidad no detallada por parte de XXXXXXXXXX.
+--- ppt/slides/slide14.xml
+   Scrum Master / Technical Leader
+   Tower Leader
+   PMO
+   Corporate Development Manager
+   Customer Experience Manager
+   Presentamos nuestro esquema de escalamiento en caso de presentar algún inconveniente con el servicio prestado.
+   experenciadecliente@periferiaitgroup.com
+   Cargo
+   Nombre
+   xxxxxxxxxx@xxxxxxxxxxxxxxxxxx
+   +57 xxxxxxxxx
+   Nivel de Escalamiento
+   www.periferiaitgroup.com
+   <<Logo del Cliente>>
+--- ppt/slides/slide15.xml
+   Oferta Económica
+   *Xxxxxxx xxxxxxx xxxxxxxxxxxx xxxxxxxxxxx
+   Perfiles
+   Cantidad
+   Horas
+   Tarifa
+   Valor
+--- ppt/slides/slide16.xml
+   Construyamos juntos la mejor solución para tu equipo.
+   ¿Qué opinas de esta propuesta?
+   Danos tu Feedback en solo 30 segundos
+   ABRIR ENCUESTA
+--- ppt/slides/slide17.xml
+   Forma de Pago
+   El pago se realizará conforme al siguiente plan de porcentajes, teniendo en cuenta que XXXXXXXX pagará a los XX días calendario una vez radicada la factura, como fecha máxima.
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   30
+   %
+   Con la firma del actade inicio de proyecto.
+   Entrega de los desarrollos y pruebas de los Sprints definidos.
+   Paso a QA y/o Producción.
+   50
+   %
+   20
+   %
+--- ppt/slides/slide18.xml
+   Condiciones Comerciales
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--- ppt/slides/slide19.xml
+   Garantía
+   La garantía del producto está definida en dos fases, la fase de estabilización y la garantía:Fase de estabilización: Este periodo de tiempo inicia al momento de pasar el 100% de los desarrollos del producto al ambiente de QA del cliente. Se define un tiempo de 15 días calendario para que el cliente realice la certificación del producto.Fase de garantía: Hace referencia al periodo de soporte de fallas que puedan surgir posterior a la fase de estabilización. Para esto se define un tiempo de 90 días calendario. Garantía del producto = 15 días de estabilización + 90 días de garantía.
+   Inicio de Actividades
+   Hasta ocho (8) días hábiles después de firmado el contrato entre xxxxxxxxxx o recepción de orden de compra o correo formal aceptando la propuesta.
+   Vigencia de la propuesta
+   La vigencia de la propuesta será de 60 días calendario a partir de la fecha de presentación de esta.
+   Se entiende por garantía el proceso por el cual PERIFERIA IT CORP coloca a disposición del proyecto el talento humano que sea necesario para atender fallas o errores en los componentes ocasionados por la operación diaria. Este período no incluye nuevos requerimientos o funcionalidades.
+--- ppt/slides/slide21.xml
+   Gracias
+   ISO 27001:2022PRC/DUV-COL/IS3164CAB/DUV-COL/IS3165
+   ISO 9001:2015MSC-57124103MSC-57124103-1ISO 27032:2023MSC-571924002MSC-571924002-1
