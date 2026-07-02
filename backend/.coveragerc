@@ -5,3 +5,7 @@ omit =
     inspect_slide_titles2.py
     server.py
     run_tests.bat
+    show_coverage.py
+    infrastructure/generators/fda_perfiles.py
+    infrastructure/generators/consideraciones.py
+    infrastructure/generators/cronograma_image.py
