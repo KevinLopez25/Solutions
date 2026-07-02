@@ -10,7 +10,11 @@ from core.config import settings
 from domain.propuesta.entities import GenerarPropuestaRequest, GenerarPropuestaResponse
 from infrastructure import generators as orchestrator
 from infrastructure.repositories.catalogo_repository import build_catalog_data
-from domain.ai.service import generate_as_is_to_be, generate_roadmap_phases
+from domain.ai.service import (
+    generate_as_is_to_be,
+    generate_roadmap_phases,
+    fallback_roadmap_phases,
+)
 
 FILIALES = {
     "corp":  "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx",
@@ -35,14 +39,48 @@ def generar_propuesta(
     catalog_data = build_catalog_data(db)
 
     config = request.model_dump()
-    if request.incluir_as_is_to_be:
-        as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
-        config['as_is_text'] = as_is_text
-        config['to_be_text'] = to_be_text
+    excel_data = config.get('excel_data', {}) or {}
+    if request.actividades and not excel_data.get('actividades'):
+        excel_data['actividades'] = [
+            a.model_dump() if hasattr(a, 'model_dump') else dict(a)
+            for a in request.actividades
+        ]
+    if request.roles and not excel_data.get('perfiles'):
+        excel_data['perfiles'] = [
+            r.model_dump() if hasattr(r, 'model_dump') else dict(r)
+            for r in request.roles
+        ]
+    if not excel_data.get('torres') and request.torres_seleccionadas:
+        excel_data['torres'] = [
+            {'nombre': str(t).strip(), 'horas': 0, 'personas': 1}
+            for t in request.torres_seleccionadas
+            if str(t).strip()
+        ]
+    config['excel_data'] = excel_data
 
-    roadmap_phases = generate_roadmap_phases(config.get('excel_data', {}))
-    if roadmap_phases:
+    if request.incluir_as_is_to_be:
+        try:
+            as_is_text, to_be_text = generate_as_is_to_be(config.get('excel_data', {}), request.as_is_description)
+            config['as_is_text'] = as_is_text
+            config['to_be_text'] = to_be_text
+        except Exception as exc:
+            print(f"[PROPUESTA] No se pudo generar AS-IS/TO-BE: {exc}")
+            config['as_is_text'] = ''
+            config['to_be_text'] = ''
+
+    try:
+        roadmap_phases = generate_roadmap_phases(config.get('excel_data', {}))
+        if not roadmap_phases or not isinstance(roadmap_phases, list) or len(roadmap_phases) != 4:
+            raise RuntimeError('Roadmap inválido o incompleto')
         config['roadmap_phases'] = roadmap_phases
+    except Exception as exc:
+        print(f"[PROPUESTA] No se pudo generar roadmap: {exc}")
+        try:
+            config['roadmap_phases'] = fallback_roadmap_phases(config.get('excel_data', {}))
+            print("[PROPUESTA] Se generó roadmap de fallback.")
+        except Exception as fallback_exc:
+            print(f"[PROPUESTA] Fallback de roadmap también falló: {fallback_exc}")
+            config['roadmap_phases'] = []
 
     result_bytes = orchestrator.generate(pptx_bytes, config, catalog_data)
 

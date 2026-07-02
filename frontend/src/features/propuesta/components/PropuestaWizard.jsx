@@ -8,20 +8,19 @@ import TorreSelector from './TorreSelector'
 import PerfilSelector from './PerfilSelector'
 import PillsControl from './PillsControl'
 
-const STEPS     = ['Modo', 'Excel', 'Torres', 'Filial', 'Secciones', 'Resumen']
+const STEPS = ['Modo', 'Excel', 'Torres', 'Filial', 'Secciones', 'Resumen']
 const PROG_TEXT = ['Elige el tipo', 'Sube el Excel', 'Revisa los datos', 'Elige la filial', 'Configura secciones', 'Genera el documento']
-const TOTAL     = STEPS.length - 1
+const TOTAL = STEPS.length - 1
 
 export default function PropuestaWizard({ onDraftGenerated, proposalDraft, reviewRequested, onOpenChat }) {
   const navigate = useNavigate()
-  const [step, setStep]               = useState(0)
+  const [step, setStep] = useState(0)
   const [modoPerfiles, setModoPerfiles] = useState('catalogo')
-  const [manualRol, setManualRol]     = useState('')
-  const [manualDesc, setManualDesc]   = useState('')
-  const [logoFile, setLogoFile]        = useState(null) // { b64, mimeType, name }
+  const [manualRol, setManualRol] = useState('')
+  const [manualDesc, setManualDesc] = useState('')
+  const [logoFile, setLogoFile] = useState(null) // { b64, mimeType, name }
   const [applyingLogo, setApplyingLogo] = useState(false)
-  const [logoMsg, setLogoMsg]          = useState(null) // { ok: bool, text: string }
-
+  const [logoMsg, setLogoMsg] = useState(null) // { ok: bool, text: string }
   const {
     filial, setFilial,
     excelData, setExcelData,
@@ -34,10 +33,11 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     loading, error,
     generate,
     downloadProposal,
+    iaAlcance, setIaAlcance,
   } = usePropuesta()
 
   const excelVacio = !excelData || (excelData.torres?.length ?? 0) === 0
-  const totalHrs   = excelData?.torres?.reduce((s, t) => s + (t.horas || 0), 0) ?? 0
+  const totalHrs = excelData?.torres?.reduce((s, t) => s + (t.horas || 0), 0) ?? 0
 
   function next() { setStep(s => Math.min(s + 1, TOTAL)) }
   function back() { setStep(s => Math.max(s - 1, 0)) }
@@ -47,33 +47,33 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     try {
       // Sanitizar los datos del Excel
       const sanitized = {
-        cliente:         String(data.cliente || '').trim(),
-        proyecto:        String(data.proyecto || '').trim(),
-        filename:        String(data.filename || '').trim(),
-        torres:          (Array.isArray(data.torres) ? data.torres : [])
+        cliente: String(data.cliente || '').trim(),
+        proyecto: String(data.proyecto || '').trim(),
+        filename: String(data.filename || '').trim(),
+        torres: (Array.isArray(data.torres) ? data.torres : [])
           .filter(t => t && typeof t === 'object')
           .map(t => ({
-            nombre:   String(t.nombre || '').trim(),
-            horas:    Math.round(Number(t.horas) || 0),
+            nombre: String(t.nombre || '').trim(),
+            horas: Math.round(Number(t.horas) || 0),
             personas: Math.max(1, Math.round(Number(t.personas) || 1)),
           }))
           .filter(t => t.nombre.length > 0),
-        perfiles:        (Array.isArray(data.perfiles) ? data.perfiles : [])
+        perfiles: (Array.isArray(data.perfiles) ? data.perfiles : [])
           .filter(p => p && typeof p === 'object')
           .map(p => ({
-            torre:     String(p.torre || '').trim(),
-            perfil:    String(p.perfil || '').trim(),
+            torre: String(p.torre || '').trim(),
+            perfil: String(p.perfil || '').trim(),
             seniority: String(p.seniority || '').trim(),
-            personas:  Number(p.personas) || 1,
+            personas: Number(p.personas) || 1,
           }))
           .filter(p => p.perfil.length > 0),
         consideraciones: (Array.isArray(data.consideraciones) ? data.consideraciones : [])
           .map(c => String(c).trim())
           .filter(c => c.length > 0),
-        fda:             (Array.isArray(data.fda) ? data.fda : [])
+        fda: (Array.isArray(data.fda) ? data.fda : [])
           .map(f => String(f).trim())
           .filter(f => f.length > 0),
-        entregables:     (Array.isArray(data.entregables) ? data.entregables : [])
+        entregables: (Array.isArray(data.entregables) ? data.entregables : [])
           .map(e => ({
             torre: String(e.torre || '').trim(),
             items: (Array.isArray(e.items) ? e.items : [])
@@ -81,6 +81,17 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
               .filter(i => i.length > 0),
           }))
           .filter(e => e.torre.length > 0 && e.items.length > 0),
+        alcances: (Array.isArray(data.alcances) ? data.alcances : [])
+          .map(a => ({
+            torre: String(a.torre || '').trim(),
+            items: (Array.isArray(a.items) ? a.items : [])
+              .map(i => ({
+                titulo:      String(i.titulo || '').trim(),
+                descripcion: String(i.descripcion || '').trim(),
+              }))
+              .filter(i => i.titulo.length > 0),
+          }))
+          .filter(a => a.torre.length > 0),
       }
       setExcelData(sanitized)
       if (sanitized.torres?.length) setTorres(sanitized.torres.map(t => t.nombre))
@@ -108,8 +119,8 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     try {
       const { content_b64 } = await reemplazarLogo({
         content_b64: proposalDraft.content_b64,
-        logo_b64:    logoFile.b64,
-        logo_mime:   logoFile.mimeType,
+        logo_b64: logoFile.b64,
+        logo_mime: logoFile.mimeType,
       })
       onDraftGenerated({ ...proposalDraft, content_b64 })
       setLogoMsg({ ok: true, text: 'Logo aplicado correctamente. Descarga la propuesta para verlo.' })
@@ -143,8 +154,8 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
       try {
         const { content_b64 } = await reemplazarLogo({
           content_b64: draft.content_b64,
-          logo_b64:    logoFile.b64,
-          logo_mime:   logoFile.mimeType,
+          logo_b64: logoFile.b64,
+          logo_mime: logoFile.mimeType,
         })
         draft = { ...draft, content_b64 }
       } catch (err) {
@@ -547,6 +558,30 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div className="sum-card">
+              <div className="sum-head">
+                <span className="sum-head-title">ALCANCE</span>
+              </div>
+
+              <div className="sum-body">
+                <div className="sr" style={{ alignItems: 'center', gap: 12 }}>
+                  <span className="sr-l">📝 ALCANCE</span>
+
+                  <div
+                    className={`pill${iaAlcance ? ' on' : ''}`}
+                    onClick={() => setIaAlcance((v) => !v)}
+                  >
+                    <div className="pill-knob" />
+
+                    <div className="pill-labs">
+                      <span className="pno">NO</span>
+                      <span className="psi">SÍ</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -581,10 +581,12 @@ def _build_roadmap_context(excel_data: dict) -> str:
         lines.append(f'Cliente: {cliente}')
 
     torres = excel_data.get('torres') or []
+    if not torres:
+        torres = excel_data.get('actividades') or []
     if torres:
         lines.append(f'Torres o áreas: {len(torres)}')
         for torre in torres[:4]:
-            nombre = torre.get('nombre', '').strip() or torre.get('torre', '').strip()
+            nombre = torre.get('nombre', '').strip() or torre.get('torre', '').strip() or torre.get('actividad', '').strip()
             if nombre:
                 horas = torre.get('horas', 0)
                 personas = torre.get('personas', 0)
@@ -621,6 +623,36 @@ def _clean_roadmap_phase(phase: dict) -> dict:
         'highlight': str(phase.get('highlight', '') or '').strip(),
         'description': str(phase.get('description', '') or '').strip(),
     }
+
+
+def fallback_roadmap_phases(excel_data: dict) -> list[dict]:
+    context = _build_roadmap_context(excel_data)
+    if not context:
+        raise RuntimeError('No hay contexto suficiente para generar el roadmap de fallback.')
+
+    proyecto = excel_data.get('proyecto') or excel_data.get('nombre_proyecto') or 'el proyecto'
+    return [
+        {
+            'title': 'Análisis',
+            'highlight': f'Evaluar la situación actual de {proyecto}.',
+            'description': 'Analizar las torres, roles y entregables para definir prioridades y riesgos.',
+        },
+        {
+            'title': 'Diseño',
+            'highlight': 'Definir la solución y el alcance de implementación.',
+            'description': 'Estructurar la propuesta técnica y los entregables clave con base en el contexto extraído.',
+        },
+        {
+            'title': 'Ejecución',
+            'highlight': 'Construir e integrar la solución planificada.',
+            'description': 'Implementar las torres y coordinar los equipos para entregar valor en cada fase.',
+        },
+        {
+            'title': 'Transición',
+            'highlight': 'Poner en operación y validar el resultado.',
+            'description': 'Entregar el proyecto, capacitar al cliente y asegurar continuidad operativa.',
+        },
+    ]
 
 
 def generate_roadmap_phases(excel_data: dict) -> list[dict]:

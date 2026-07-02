@@ -31,6 +31,30 @@ def test_generar_propuesta_success(monkeypatch, tmp_path):
     assert base64.b64decode(response.content_b64) == b"pptx-ok"
 
 
+def test_generar_propuesta_continues_when_ai_fails(monkeypatch, tmp_path):
+    template_file = tmp_path / "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx"
+    template_file.write_bytes(b"fake-pptx")
+
+    monkeypatch.setattr(service, "settings", SimpleNamespace(templates_path=tmp_path))
+    monkeypatch.setattr(service, "build_catalog_data", lambda db: {"torres": []})
+
+    def fail_as_is(excel_data, desc):
+        raise RuntimeError("groq rate limit")
+
+    def fail_roadmap(excel_data):
+        raise RuntimeError("roadmap failed")
+
+    monkeypatch.setattr(service, "generate_as_is_to_be", fail_as_is)
+    monkeypatch.setattr(service, "generate_roadmap_phases", fail_roadmap)
+    monkeypatch.setattr(service.orchestrator, "generate", lambda pptx_bytes, config, catalog_data: b"pptx-ok")
+
+    request = GenerarPropuestaRequest(filial="corp", incluir_as_is_to_be=True, excel_data={})
+    response = service.generar_propuesta(None, request)
+
+    assert response.filename == "Propuesta_Periferia_CORP.pptx"
+    assert base64.b64decode(response.content_b64) == b"pptx-ok"
+
+
 def test_get_filiales_route(client):
     response = client.get("/api/v1/propuesta/filiales")
 

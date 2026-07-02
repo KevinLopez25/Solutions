@@ -14,7 +14,7 @@ export default function ExcelUploader({ onParsed }) {
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const wb = XLSX.read(ev.target.result, { type: 'array' })
+        const wb = XLSX.read(ev.target.result, { type: 'array', cellStyles: true })
         const data = parse(wb, file.name)
         setFilename(file.name)
         onParsed?.(data)
@@ -83,7 +83,82 @@ function parse(wb, filename) {
   const resumen    = parseResumen(wb)
   const estimacion = parseEstimacion(wb)
   const perfiles   = parseAnexos(wb)
-  return { ...resumen, ...estimacion, perfiles, filename }
+  const alcances   = parseAlcances(wb, resumen.torres)
+  return { ...resumen, ...estimacion, perfiles, alcances, filename }
+}
+
+function _rgbEsVerde(hex) {
+  if (!hex || hex.length < 6) return false
+  const rgb = hex.length === 8 ? hex.slice(2) : hex
+  const r = parseInt(rgb.slice(0, 2), 16)
+  const g = parseInt(rgb.slice(2, 4), 16)
+  const b = parseInt(rgb.slice(4, 6), 16)
+  return g > r + 20 && g > b + 20 && g > 80
+}
+
+function _celdaEsVerde(cell) {
+  if (!cell || !cell.s) return false
+  const fg = cell.s.fgColor
+  const bg = cell.s.bgColor
+  const colorFg = fg?.argb || fg?.rgb || ''
+  const colorBg = bg?.argb || bg?.rgb || ''
+  return _rgbEsVerde(colorFg) || _rgbEsVerde(colorBg)
+}
+
+function parseAlcances(wb, torres = []) {
+  const ws = wb.Sheets['Estimación'] || wb.Sheets['Estimacion']
+  if (!ws) return []
+
+  const rangeStr = ws['!ref']
+  if (!rangeStr) return []
+  const range = XLSX.utils.decode_range(rangeStr)
+
+  const torresNorm = new Set(
+    (torres || []).flatMap(t => {
+      const nombre = (t.nombre || t).trim().toLowerCase()
+      return [nombre, ('torre ' + nombre)]
+    })
+  )
+
+  const alcances      = []
+  let   torreActual   = null
+  let   itemsActuales = []
+
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const refA = XLSX.utils.encode_cell({ r, c: 0 })
+    const refB = XLSX.utils.encode_cell({ r, c: 1 })
+    const cellA = ws[refA]
+    const cellB = ws[refB]
+
+    const textoA = cellA ? String(cellA.v ?? '').trim() : ''
+    const textoB = cellB ? String(cellB.v ?? '').trim() : ''
+
+    if (!textoA) continue
+
+    const textoALower = textoA.toLowerCase()
+    const verdeDetectado = _celdaEsVerde(cellA)
+    const esFallbackTorre =
+      !textoB && (
+        torresNorm.has(textoALower) ||
+        torresNorm.has(textoALower.replace(/^torre\s+/i, '').trim())
+      )
+
+    if (verdeDetectado || esFallbackTorre) {
+      if (torreActual && itemsActuales.length > 0) {
+        alcances.push({ torre: torreActual, items: itemsActuales })
+      }
+      torreActual   = textoA
+      itemsActuales = []
+    } else if (torreActual) {
+      itemsActuales.push({ titulo: textoA, descripcion: textoB })
+    }
+  }
+
+  if (torreActual && itemsActuales.length > 0) {
+    alcances.push({ torre: torreActual, items: itemsActuales })
+  }
+
+  return alcances
 }
 
 function parseResumen(wb) {
