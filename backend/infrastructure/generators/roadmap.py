@@ -8,8 +8,7 @@ PPTX_NS = {
     'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
 }
 
-# fallback if detection fails
-DEFAULT_SLIDE_PATH = 'ppt/slides/slide5.xml'
+SLIDE_PATH = 'ppt/slides/slide5.xml'
 
 
 def _extract_shape_text(shape):
@@ -92,35 +91,8 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data: dict) -> bytes:
 
     with zipfile.ZipFile(io.BytesIO(pptx_bytes), mode='r') as zin:
         files = {name: zin.read(name) for name in zin.namelist()}
-    # determine slide order and find the roadmap slide dynamically
-    def _get_slide_order_from_files(files_dict):
-        prs_rels = etree.fromstring(files_dict.get('ppt/_rels/presentation.xml.rels'))
-        rid_map = {r.attrib['Id']: r.attrib['Target'] for r in prs_rels}
-        prs = etree.fromstring(files_dict.get('ppt/presentation.xml'))
-        ns = {'p': PPTX_NS['p'], 'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
-        return ['ppt/' + rid_map[s.attrib[f"{{{ns['r']}}}id"]] for s in prs.find('.//p:sldIdLst', ns)]
 
-    def _find_roadmap_slide(files_dict, slides_order):
-        # Prefer slides containing an explicit "Roadmap" title
-        for path in slides_order:
-            root = etree.fromstring(files_dict[path])
-            texts = [ _extract_shape_text(sp) for sp in root.findall('.//p:sp', namespaces=PPTX_NS) ]
-            joined = '\n'.join(t.lower() for t in texts if t)
-            if 'roadmap' in joined or 'roadmap del servicio' in joined:
-                return path
-        # Fallback: find slide that contains the placeholder markers 'XXXXXXX'
-        for path in slides_order:
-            root = etree.fromstring(files_dict[path])
-            shapes = root.findall('.//p:sp', namespaces=PPTX_NS)
-            cnt = sum(1 for s in shapes if _extract_shape_text(s).strip() == 'XXXXXXX')
-            if cnt >= 4:
-                return path
-        # last resort: use default if present
-        return DEFAULT_SLIDE_PATH if DEFAULT_SLIDE_PATH in files_dict else None
-
-    slides_order = _get_slide_order_from_files(files)
-    SLIDE_PATH = _find_roadmap_slide(files, slides_order)
-    if not SLIDE_PATH:
+    if SLIDE_PATH not in files:
         return pptx_bytes
 
     root = etree.fromstring(files[SLIDE_PATH])
