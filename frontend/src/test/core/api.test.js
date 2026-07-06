@@ -57,6 +57,21 @@ describe('API Error Interceptor', () => {
     await expect(api.interceptors.response.handlers[0].rejected(error)).rejects.toThrow('{"foo":"bar"}')
   })
 
+  it('should fall back to the error message when object detail cannot be stringified', async () => {
+    const error = {
+      response: {
+        data: {
+          detail: {
+            toJSON: () => undefined,
+          },
+        },
+      },
+      message: 'Request failed',
+    }
+
+    await expect(api.interceptors.response.handlers[0].rejected(error)).rejects.toThrow('Request failed')
+  })
+
   it('should fall back to default error message when detail is missing', async () => {
     const error = {
       response: {

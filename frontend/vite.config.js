@@ -35,6 +35,12 @@ export default defineConfig({
         'src/features/propuesta/hooks/usePropuesta.js',
         'src/features/catalogo/components/CatalogoTable.jsx',
       ],
+      thresholds: {
+        statements: 85,
+        branches: 85,
+        functions: 85,
+        lines: 85,
+      },
     },
   },
 })
