@@ -82,6 +82,53 @@ _REL_IMAGE_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 _FILL_TAGS = ['solidFill', 'gradFill', 'noFill', 'blipFill', 'pattFill', 'grpFill']
 
 
+def _generate_catalog_description(entity_name: str, value: str, prompt: str) -> str:
+    try:
+        content = create_chat_completion([
+            {"role": "system", "content": "Eres un asistente experto en redactar textos breves, profesionales y claros para propuestas de TI en español."},
+            {"role": "user", "content": prompt},
+        ], max_tokens=220)
+        text = (content or '').strip()
+        if not text:
+            raise RuntimeError('La IA devolvió un contenido vacío')
+        return text
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo generar la descripción para {entity_name}: {exc}") from exc
+
+
+def generate_profile_description(perfil: str, torre: str | None = None) -> str:
+    prompt = (
+        "Genera una descripción breve y profesional para el perfil de TI. "
+        "No repitas el nombre del perfil porque ya aparece como título. "
+        "Usa un máximo de 18 palabras y evita contexto innecesario. "
+        "Debe ser directo, claro y apto para caber en una tarjeta de PowerPoint."
+    )
+    if torre:
+        prompt += f" Considera que pertenece a la torre '{torre}' y enfócate en tareas clave y valor del perfil."
+    return _generate_catalog_description('perfil', perfil, prompt)
+
+
+def generate_consideration_description(texto: str, torre: str | None = None) -> str:
+    prompt = f"Genera una descripción breve y profesional para la consideración '{texto}'."
+    if torre:
+        prompt += f" Considera que pertenece a la torre '{torre}'."
+    return _generate_catalog_description('consideración', texto, prompt)
+
+
+def generate_entregable_description(item: str, torre: str | None = None) -> str:
+    prompt = f"Genera una descripción breve y profesional para el entregable '{item}'."
+    if torre:
+        prompt += f" Considera que pertenece a la torre '{torre}'."
+    return _generate_catalog_description('entregable', item, prompt)
+
+
+def generate_fuera_alcance_description(item: str, torre: str | None = None) -> str:
+    prompt = f"Genera una descripción breve y profesional para el ítem fuera de alcance '{item}'."
+    if torre:
+        prompt += f" Considera que pertenece a la torre '{torre}'."
+    return _generate_catalog_description('fuera de alcance', item, prompt)
+
+
 def replace_logo_in_pptx(pptx_bytes: bytes, logo_bytes: bytes, logo_mime: str) -> bytes:
     """Replace the client logo in slide 1.
 
