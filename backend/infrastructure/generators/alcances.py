@@ -43,6 +43,8 @@ _NOMBRE_SHAPES: set[str] = set()
 _DESC_SHAPES:   set[str] = set()
 
 _PH_RE = re.compile(r'X{3,}', re.IGNORECASE)
+_ROADMAP_MARKERS = {'start', 'finish', 'xxxxxxx'}
+_ROADMAP_KEYWORDS = {'roadmap'}
 
 # ── Prompt IA ─────────────────────────────────────────────────────────────────
 _IA_SYSTEM = (
@@ -291,6 +293,30 @@ def _collect_shapes(root):
     return nombres_out, descs_out
 
 
+def _is_roadmap_slide(root) -> bool:
+    raw_text = []
+    for sp in root.iter(f'{{{P}}}sp'):
+        txb = sp.find(f'{{{P}}}txBody')
+        if txb is None:
+            continue
+        raw = ''.join(t.text or '' for t in txb.findall(f'.//{{{A}}}t')).strip()
+        if raw:
+            raw_text.append(raw.lower())
+
+    if not raw_text:
+        return False
+
+    raw = ' '.join(raw_text)
+    if any(keyword in raw for keyword in _ROADMAP_KEYWORDS):
+        return True
+
+    for marker in _ROADMAP_MARKERS:
+        if re.search(rf'\b{re.escape(marker)}\b', raw):
+            return True
+
+    return False
+
+
 # ── Búsqueda del slide objetivo ───────────────────────────────────────────────
 
 def _find_alcances_slide(files_dict: dict, slides_order: list) -> str | None:
@@ -302,6 +328,8 @@ def _find_alcances_slide(files_dict: dict, slides_order: list) -> str | None:
     # Pass 1: official title/centeredTitle placeholders only
     for path in slides_order:
         root = etree.fromstring(files_dict[path])
+        if _is_roadmap_slide(root):
+            continue
         for sp in root.iter(f'{{{P}}}sp'):
             ph = sp.find(f'.//{{{P}}}ph')
             if ph is None:
@@ -322,6 +350,8 @@ def _find_alcances_slide(files_dict: dict, slides_order: list) -> str | None:
     # to avoid matching "alcance" inside roadmap/content bullet points
     for path in slides_order:
         root = etree.fromstring(files_dict[path])
+        if _is_roadmap_slide(root):
+            continue
         for sp in root.iter(f'{{{P}}}sp'):
             if _sp_off_y(sp) > _Y_TITLE_MAX:
                 continue

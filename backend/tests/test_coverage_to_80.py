@@ -203,6 +203,51 @@ class TestRoadmapFinal:
         assert 'Hello' in text
 
 
+class TestAlcancesSlideDetection:
+    def test_skips_roadmap_slide_when_finding_alcances(self):
+        from infrastructure.generators.alcances import _find_alcances_slide
+        from infrastructure.generators.cronograma_entregables import _get_slide_order
+
+        roadmap_xml = (
+            '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+            '<p:cSld><p:spTree>'
+            '<p:sp><p:nvSpPr><p:cNvPr id="2" name="RoadmapTitle"/></p:nvSpPr>'
+            '<p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="1000" cy="500"/></a:xfrm></p:spPr>'
+            '<p:txBody><a:p><a:r><a:t>START</a:t></a:r></a:p></p:txBody></p:sp>'
+            '<p:sp><p:nvSpPr><p:cNvPr id="3" name="RoadmapBody"/></p:nvSpPr>'
+            '<p:spPr><a:xfrm><a:off x="100" y="300"/><a:ext cx="1000" cy="500"/></a:xfrm></p:spPr>'
+            '<p:txBody><a:p><a:r><a:t>FINISH</a:t></a:r></a:p></p:txBody></p:sp>'
+            '<p:sp><p:nvSpPr><p:cNvPr id="4" name="RoadmapMarker"/></p:nvSpPr>'
+            '<p:spPr><a:xfrm><a:off x="100" y="500"/><a:ext cx="1000" cy="500"/></a:xfrm></p:spPr>'
+            '<p:txBody><a:p><a:r><a:t>XXXXXXX</a:t></a:r></a:p></p:txBody></p:sp>'
+            '</p:spTree></p:cSld></p:sld>'
+        )
+        alcance_xml = (
+            '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+            '<p:cSld><p:spTree>'
+            '<p:sp><p:nvSpPr><p:cNvPr id="5" name="Title"/></p:nvSpPr>'
+            '<p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="3000000" cy="700000"/></a:xfrm></p:spPr>'
+            '<p:txBody><a:p><a:r><a:t>Alcance Técnico del Servicio</a:t></a:r></a:p></p:txBody>'
+            '<p:nvPr><p:ph type="title"/></p:nvPr></p:sp>'
+            '</p:spTree></p:cSld></p:sld>'
+        )
+
+        pptx = _build_minimal_pptx({
+            'ppt/slides/slide5.xml': roadmap_xml,
+            'ppt/slides/slide6.xml': alcance_xml,
+        })
+        slides_order = _get_slide_order(pptx)
+        files_dict = {
+            'ppt/slides/slide5.xml': roadmap_xml.encode('utf-8'),
+            'ppt/slides/slide6.xml': alcance_xml.encode('utf-8'),
+        }
+
+        target = _find_alcances_slide(files_dict, slides_order)
+        assert target == 'ppt/slides/slide6.xml'
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # infrastructure/generators/consideraciones.py — edge cases
 # ═══════════════════════════════════════════════════════════════════════════════
