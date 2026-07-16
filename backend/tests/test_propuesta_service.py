@@ -31,6 +31,33 @@ def test_generar_propuesta_success(monkeypatch, tmp_path):
     assert base64.b64decode(response.content_b64) == b"pptx-ok"
 
 
+def test_generar_propuesta_uses_custom_template_name(monkeypatch, tmp_path):
+    template_dir = tmp_path / "corp"
+    template_dir.mkdir()
+    custom_template = template_dir / "custom-template.pptx"
+    custom_template.write_bytes(b"custom-pptx")
+
+    monkeypatch.setattr(service, "settings", SimpleNamespace(templates_path=tmp_path))
+    monkeypatch.setattr(service, "build_catalog_data", lambda db: {"torres": []})
+    monkeypatch.setattr(service, "generate_as_is_to_be", lambda excel_data, desc: ("AS-IS", "TO-BE"))
+    monkeypatch.setattr(service, "generate_roadmap_phases", lambda excel_data: [{"name": "Fase 1"}])
+
+    captured = {}
+
+    def fake_generate(pptx_bytes, config, catalog_data):
+        captured["pptx_bytes"] = pptx_bytes
+        return b"pptx-ok"
+
+    monkeypatch.setattr(service.orchestrator, "generate", fake_generate)
+
+    request = GenerarPropuestaRequest(filial="corp", template_name="custom-template.pptx", excel_data={})
+    response = service.generar_propuesta(None, request)
+
+    assert response.filename == "Propuesta_Periferia_CORP.pptx"
+    assert base64.b64decode(response.content_b64) == b"pptx-ok"
+    assert captured["pptx_bytes"] == b"custom-pptx"
+
+
 def test_generar_propuesta_continues_when_ai_fails(monkeypatch, tmp_path):
     template_file = tmp_path / "CS-FR-012-PROPUESTA_COMERCIAL_PERIFERIA_IT_CORP.pptx"
     template_file.write_bytes(b"fake-pptx")

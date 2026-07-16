@@ -32,6 +32,23 @@ def test_generar_propuesta_route_template_not_found(client, monkeypatch, tmp_pat
     assert "Plantilla no encontrada" in response.json()["detail"]
 
 
+def test_upload_template_route_saves_file(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(propuesta_service, "settings", SimpleNamespace(templates_path=tmp_path))
+
+    response = client.post(
+        "/api/v1/propuesta/plantillas/upload",
+        data={"filial": "corp", "section": "cover", "template_name": "nuevo-cover"},
+        files={"file": ("nuevo-cover.pptx", b"fake-pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["filial"] == "corp"
+    assert payload["section"] == "cover"
+    assert payload["template_name"] == "nuevo-cover.pptx"
+    assert (tmp_path / "corp" / "cover" / "nuevo-cover.pptx").exists()
+
+
 def test_get_filiales_route(client):
     response = client.get("/api/v1/propuesta/filiales")
 

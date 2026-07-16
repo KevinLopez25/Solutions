@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FILIALES, FILIAL_LABELS, FILIAL_CODES, TORRES_ALL, TORRE_ICONS, PILL_LABELS } from '../../../core/constants'
 import { usePropuesta } from '../hooks/usePropuesta'
 import { reemplazarLogo } from '../../ai/services/aiService'
+import { subirPlantillaTemplate } from '../services/propuestaService'
 import ExcelUploader from './ExcelUploader'
 import TorreSelector from './TorreSelector'
 import PerfilSelector from './PerfilSelector'
@@ -21,6 +22,8 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   const [logoFile, setLogoFile] = useState(null) // { b64, mimeType, name }
   const [applyingLogo, setApplyingLogo] = useState(false)
   const [logoMsg, setLogoMsg] = useState(null) // { ok: bool, text: string }
+  const [templateMsg, setTemplateMsg] = useState(null)
+  const [uploadingTemplate, setUploadingTemplate] = useState(false)
   const {
     filial, setFilial,
     excelData, setExcelData,
@@ -142,6 +145,29 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     }
     reader.readAsDataURL(file)
     e.target.value = ''
+  }
+
+  async function handleTemplateUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file || !filial) return
+
+    setUploadingTemplate(true)
+    setTemplateMsg(null)
+    try {
+      const result = await subirPlantillaTemplate({
+        file,
+        filial,
+        section: 'default',
+        templateName: file.name.replace(/\.pptx$/i, ''),
+      })
+      setTemplateMsg({ ok: true, text: `Plantilla cargada: ${result.template_name}` })
+    } catch (err) {
+      const detail = err?.response?.data?.detail || err?.message || 'No se pudo cargar la plantilla.'
+      setTemplateMsg({ ok: false, text: detail })
+    } finally {
+      setUploadingTemplate(false)
+      e.target.value = ''
+    }
   }
 
   async function handleGenerate() {
@@ -607,6 +633,32 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                 </div>
               </div>
             )}
+
+            <div className="sum-card">
+              <div className="sum-head"><span className="sum-head-title">Plantillas de propuesta</span></div>
+              <div className="sum-body">
+                <div className="sr">
+                  <span className="sr-l"><span>📄</span>Cargar nueva plantilla (.pptx)</span>
+                  <label style={{ cursor: 'pointer' }}>
+                    <input
+                      id="template-upload"
+                      type="file"
+                      accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      onChange={handleTemplateUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <span className="stag b" style={{ cursor: 'pointer' }}>
+                      {uploadingTemplate ? 'Subiendo…' : '📂 Seleccionar archivo'}
+                    </span>
+                  </label>
+                </div>
+                {templateMsg && (
+                  <p style={{ marginTop: 8, fontSize: 13, color: templateMsg.ok ? 'var(--accent)' : '#f87171' }}>
+                    {templateMsg.ok ? '✅' : '⚠️'} {templateMsg.text}
+                  </p>
+                )}
+              </div>
+            </div>
 
             {error && <p className="err-txt">{error}</p>}
 

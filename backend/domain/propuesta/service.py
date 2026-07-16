@@ -32,6 +32,40 @@ def _normalize_text(value: str | None) -> str:
     return " ".join(str(value or "").strip().upper().split())
 
 
+def _resolve_template_path(request: GenerarPropuestaRequest) -> Path:
+    filial = str(request.filial or "").strip().lower()
+    if not filial:
+        raise ValueError("Filial inválida")
+
+    requested_name = str(request.template_name or "").strip()
+    section_name = str(request.template_section or "").strip().lower() or "default"
+
+    candidates: list[Path] = []
+    if requested_name:
+        candidates.extend([
+            settings.templates_path / filial / section_name / requested_name,
+            settings.templates_path / filial / requested_name,
+            settings.templates_path / requested_name,
+            Path(requested_name),
+        ])
+
+    default_name = FILIALES.get(filial)
+    if default_name:
+        candidates.extend([
+            settings.templates_path / filial / default_name,
+            settings.templates_path / default_name,
+        ])
+
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+    if requested_name:
+        raise FileNotFoundError(f"Plantilla no encontrada: {requested_name}")
+
+    raise FileNotFoundError(f"Plantilla no encontrada: {default_name or filial}")
+
+
 def _catalog_torre_key(torre_name: str | None) -> str:
     if not torre_name:
         return ""
@@ -298,14 +332,10 @@ def generar_propuesta(
     db: Session, request: GenerarPropuestaRequest
 ) -> GenerarPropuestaResponse:
     filial = request.filial.lower()
-    template_name = FILIALES.get(filial)
-    if not template_name:
+    if filial not in FILIALES:
         raise ValueError(f"Filial desconocida: {filial}")
 
-    template_path: Path = settings.templates_path / template_name
-    if not template_path.exists():
-        raise FileNotFoundError(f"Plantilla no encontrada: {template_name}")
-
+    template_path = _resolve_template_path(request)
     pptx_bytes = template_path.read_bytes()
     catalog_data = build_catalog_data(db)
 

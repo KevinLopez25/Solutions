@@ -84,6 +84,8 @@ class GenerarPropuestaRequest(BaseModel):
     as_is_description: str = ""
     actividades: list[Actividad] = []
     roles: list[PerfilInput] = []
+    template_name: str | None = None
+    template_section: str | None = None
 
 
 class GenerarPropuestaResponse(BaseModel):
