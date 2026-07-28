@@ -15,3 +15,19 @@ export function reemplazarLogo(payload) {
 export function chatConPropuesta(payload) {
   return api.post('/ai/chat-propuesta', payload).then((res) => res.data)
 }
+
+export function completarCatalogo(payload) {
+  return api.post('/ai/completar-catalogo', payload).then((res) => res.data)
+}
+
+export function completarDescripciones(payload) {
+  return api.post('/ai/completar-descripciones', payload).then((res) => res.data)
+}
+
+export function sugerirDescripciones(payload) {
+  return api.post('/ai/sugerir-descripciones', payload).then((res) => res.data)
+}
+
+export function aplicarDescripciones(payload) {
+  return api.post('/ai/aplicar-descripciones', payload).then((res) => res.data)
+}

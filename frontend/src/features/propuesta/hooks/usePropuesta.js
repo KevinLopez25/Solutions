@@ -80,11 +80,16 @@ export function usePropuesta() {
   const { download } = useDownload()
   var [iaAlcance, setIaAlcance] = useState(false)
 
+  // Template personalizado (subido por el usuario)
+  const [templateName, setTemplateName] = useState(null)
+  const [templateSection, setTemplateSection] = useState('default')
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
+
   function togglePill(key) {
     setOpciones(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function generate(efectivosManuales) {
+  async function generate(efectivosManuales, useTemplate = false) {
     setLoading(true)
     setError(null)
     setProposalDraft(null)
@@ -165,6 +170,12 @@ export function usePropuesta() {
         roles:                roles.slice(0, 100),
       }
 
+      // Incluir template_name si se solicita usar plantilla personalizada
+      if (useTemplate && templateName) {
+        payload.template_name = templateName
+        payload.template_section = templateSection
+      }
+
       // Validar que el payload sea serializable
       const testJSON = JSON.stringify(payload)
       if (testJSON.length > 1000000) { // 1MB max
@@ -185,7 +196,15 @@ export function usePropuesta() {
       return null
     } finally {
       setLoading(false)
+      setApplyingTemplate(false)
     }
+  }
+
+  async function applyTemplateToProposal(efectivosManuales) {
+    if (!templateName) return
+    setApplyingTemplate(true)
+    setError(null)
+    return generate(efectivosManuales, true)
   }
 
   function downloadProposal(draft) {
@@ -212,5 +231,9 @@ export function usePropuesta() {
     downloadProposal,
     iaAlcance, 
     setIaAlcance,
+    templateName, setTemplateName,
+    templateSection, setTemplateSection,
+    applyingTemplate,
+    applyTemplateToProposal,
   }
 }

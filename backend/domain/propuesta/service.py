@@ -15,10 +15,6 @@ from domain.ai.service import (
     generate_as_is_to_be,
     generate_roadmap_phases,
     fallback_roadmap_phases,
-    generate_profile_description,
-    generate_consideration_description,
-    generate_entregable_description,
-    generate_fuera_alcance_description,
 )
 
 FILIALES = {
@@ -42,11 +38,16 @@ def _resolve_template_path(request: GenerarPropuestaRequest) -> Path:
 
     candidates: list[Path] = []
     if requested_name:
+        # Intentar con el nombre tal cual y también con extensión .pptx
         candidates.extend([
             settings.templates_path / filial / section_name / requested_name,
+            settings.templates_path / filial / section_name / f"{requested_name}.pptx",
             settings.templates_path / filial / requested_name,
+            settings.templates_path / filial / f"{requested_name}.pptx",
             settings.templates_path / requested_name,
+            settings.templates_path / f"{requested_name}.pptx",
             Path(requested_name),
+            Path(f"{requested_name}.pptx"),
         ])
 
     default_name = FILIALES.get(filial)
@@ -211,9 +212,18 @@ def _enrich_catalog_from_request(
     request: GenerarPropuestaRequest,
     excel_data: dict,
 ):
+    """
+    Enriquece el catálogo con los datos del Excel del cliente.
+    
+    DIFERENCIA CLAVE: NO llama a la IA durante la generación del documento.
+    Si un ítem ya existe en la BD, conserva su descripción original.
+    Si NO existe, lo guarda con un placeholder para que el usuario
+    luego le pida al asistente IA que complete las descripciones desde el chat.
+    """
     if not excel_data:
         return catalog_data
 
+    PLACEHOLDER = 'Solicita al asistente IA que complete esta descripción'
     torre_candidates = _get_torre_candidates(excel_data, request)
 
     perfiles = excel_data.get('perfiles') or []
@@ -226,23 +236,10 @@ def _enrich_catalog_from_request(
             torre_name = torre_candidates[0] if torre_candidates else None
         if not perfil_name:
             continue
-        try:
-            description = generate_profile_description(perfil_name, torre_name)
-            persist_profile = True
-        except Exception as exc:
-            print(f"[PROPUESTA] No se pudo generar descripción para perfil '{perfil_name}': {exc}")
-            description = 'No se encontró este perfil en la base de datos'
-            persist_profile = False
         _ensure_catalog_item(
-            db,
-            catalog_data,
-            request,
-            excel_data,
-            'perfil',
-            perfil_name,
-            torre_name,
-            description,
-            persist=persist_profile,
+            db, catalog_data, request, excel_data,
+            'perfil', perfil_name, torre_name,
+            description=PLACEHOLDER, persist=True,
         )
 
     consideraciones = excel_data.get('consideraciones') or []
@@ -250,23 +247,11 @@ def _enrich_catalog_from_request(
         texto = str(texto).strip()
         if not texto:
             continue
-        try:
-            description = generate_consideration_description(texto, torre_candidates[0] if torre_candidates else None)
-            persist_consideration = True
-        except Exception as exc:
-            print(f"[PROPUESTA] No se pudo generar descripción para consideración '{texto}': {exc}")
-            description = 'No se encontró esta consideración en la base de datos'
-            persist_consideration = False
         _ensure_catalog_item(
-            db,
-            catalog_data,
-            request,
-            excel_data,
-            'consideracion',
-            texto,
+            db, catalog_data, request, excel_data,
+            'consideracion', texto,
             torre_candidates[0] if torre_candidates else None,
-            description,
-            persist=persist_consideration,
+            description=PLACEHOLDER, persist=True,
         )
 
     entregables_groups = excel_data.get('entregables') or []
@@ -282,23 +267,10 @@ def _enrich_catalog_from_request(
             item = str(item).strip()
             if not item:
                 continue
-            try:
-                description = generate_entregable_description(item, torre_name)
-                persist_entregable = True
-            except Exception as exc:
-                print(f"[PROPUESTA] No se pudo generar descripción para entregable '{item}': {exc}")
-                description = 'No se encontró este entregable en la base de datos'
-                persist_entregable = False
             _ensure_catalog_item(
-                db,
-                catalog_data,
-                request,
-                excel_data,
-                'entregable',
-                item,
-                torre_name,
-                description,
-                persist=persist_entregable,
+                db, catalog_data, request, excel_data,
+                'entregable', item, torre_name,
+                description=PLACEHOLDER, persist=True,
             )
 
     fda_items = excel_data.get('fda') or []
@@ -306,23 +278,10 @@ def _enrich_catalog_from_request(
         item = str(item).strip()
         if not item:
             continue
-        try:
-            description = generate_fuera_alcance_description(item, torre_candidates[0] if torre_candidates else None)
-            persist_fda = True
-        except Exception as exc:
-            print(f"[PROPUESTA] No se pudo generar descripción para fuera de alcance '{item}': {exc}")
-            description = 'No se encontró este ítem fuera de alcance en la base de datos'
-            persist_fda = False
         _ensure_catalog_item(
-            db,
-            catalog_data,
-            request,
-            excel_data,
-            'fda',
-            item,
-            torre_candidates[0] if torre_candidates else None,
-            description,
-            persist=persist_fda,
+            db, catalog_data, request, excel_data,
+            'fda', item, torre_candidates[0] if torre_candidates else None,
+            description=PLACEHOLDER, persist=True,
         )
 
     return catalog_data

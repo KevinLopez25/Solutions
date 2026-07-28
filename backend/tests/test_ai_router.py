@@ -26,7 +26,7 @@ def test_ai_modify_proposal_validation_errors(client):
 
 
 def test_ai_chat_propuesta_route_success(client, monkeypatch):
-    monkeypatch.setattr(ai_router, "chat_with_proposal", lambda messages, pptx_bytes: ("Respuesta", b"nuevo"))
+    monkeypatch.setattr(ai_router, "chat_with_proposal", lambda messages, pptx_bytes, db_session=None: ("Respuesta", b"nuevo"))
     content_b64 = base64.b64encode(b"fakepptx").decode()
 
     response = client.post(

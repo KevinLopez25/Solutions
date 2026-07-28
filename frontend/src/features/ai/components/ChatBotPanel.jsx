@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { chatConPropuesta, enviarMensajeIA, reemplazarLogo } from '../services/aiService'
+import { chatConPropuesta, completarDescripciones, enviarMensajeIA, reemplazarLogo, sugerirDescripciones, aplicarDescripciones } from '../services/aiService'
+import { useDownload } from '../../../shared/hooks/useDownload'
 
 const INITIAL_ASSISTANT = {
   role: 'assistant',
@@ -8,8 +9,8 @@ const INITIAL_ASSISTANT = {
     'Cuando tengas una propuesta generada puedes pedirme cosas como:\n' +
     '• "Revisa y corrige los perfiles"\n' +
     '• "El perfil de Java está incompleto, corrígelo"\n' +
-    '• "¿Qué perfiles hay en la propuesta?"\n' +
-    '• "Corrige todos los nombres que solo digan una tecnología"\n\n' +
+    '• "Completa las descripciones de los perfiles"\n' +
+    '• "¿Qué perfiles hay en la propuesta?"\n\n' +
     'También puedo reemplazar el logo usando el botón de arriba.',
 }
 
@@ -20,6 +21,9 @@ function isImageFile(name) {
   return IMAGE_EXTS.has(ext)
 }
 
+// Placeholder que se usa en la BD cuando no hay descripción
+const PLACEHOLDER_TEXT = 'Solicita al asistente IA que complete esta descripción'
+
 export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposalModified }) {
   const [messages, setMessages]         = useState([INITIAL_ASSISTANT])
   const [input, setInput]               = useState('')
@@ -27,8 +31,10 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
   const [attachedFile, setAttachedFile] = useState(null)
   const [fileLoading, setFileLoading]   = useState(false)
   const [error, setError]               = useState('')
+  const [pendingDescriptions, setPendingDescriptions] = useState(true)
   const bodyRef   = useRef(null)
   const fileInput = useRef(null)
+  const { download } = useDownload()
 
   const chatMessages = useMemo(
     () => messages.filter((m) => m.role !== 'system'),
@@ -38,6 +44,19 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [chatMessages, open])
+
+  // Reiniciar el estado de pendientes cada vez que se carga una propuesta nueva
+  useEffect(() => {
+    setPendingDescriptions(true)
+  }, [proposalDraft])
+
+  // ── Estado de descripciones pendientes (el backend decide al completar) ──────
+  // Se muestra el boton de completar mientras haya propuesta cargada y no se
+  // haya confirmado que ya no hay descripciones pendientes.
+  const profilesWithoutDescription = useMemo(
+    () => (proposalDraft && pendingDescriptions ? 1 : 0),
+    [proposalDraft, pendingDescriptions],
+  )
 
   // ── Chat principal (con o sin propuesta) ─────────────────────────────────────
   async function handleSend(event) {
@@ -156,6 +175,97 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
     }
   }
 
+  // ── NUEVO FLUJO INTERACTIVO: Sugerir descripciones (solo muestra, no guarda) ──
+  const [pendingSuggestions, setPendingSuggestions] = useState(null) // { descripciones: [...], content_b64_original: '...' }
+
+  async function handleSugerirDescripciones() {
+    if (!proposalDraft || !proposalDraft.content_b64 || loading) return
+
+    setLoading(true)
+    setError('')
+    setPendingSuggestions(null)
+
+    const infoMsg = {
+      role: 'user',
+      content: '🤖 Sugiere descripciones para los perfiles pendientes',
+    }
+    setMessages((prev) => [...prev, infoMsg])
+
+    try {
+      const { sugerencias, reply } = await sugerirDescripciones({
+        content_b64: proposalDraft.content_b64,
+      })
+
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+
+      if (sugerencias && sugerencias.length > 0) {
+        setPendingSuggestions({
+          descripciones: sugerencias,
+          content_b64_original: proposalDraft.content_b64,
+        })
+      } else {
+        setPendingDescriptions(false)
+      }
+    } catch (err) {
+      const msg = err?.message || 'Error al generar sugerencias.'
+      setError(msg)
+      setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Aprobar descripciones sugeridas y aplicarlas ──
+  async function handleAprobarDescripciones() {
+    if (!pendingSuggestions || loading) return
+
+    setLoading(true)
+    setError('')
+
+    const userMsg = { role: 'user', content: '✅ Aprobar descripciones sugeridas' }
+    setMessages((prev) => [...prev, userMsg])
+
+    try {
+      const { reply, content_b64, modified } = await aplicarDescripciones({
+        content_b64: pendingSuggestions.content_b64_original,
+        descripciones: pendingSuggestions.descripciones,
+      })
+
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+
+      if (modified && content_b64) {
+        const updated = { ...proposalDraft, content_b64 }
+        if (onProposalModified) onProposalModified(updated)
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '✅ Descargando la versión con descripciones…' },
+        ])
+        download(
+          content_b64,
+          proposalDraft.filename || 'Propuesta_Actualizada.pptx',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        )
+        setPendingDescriptions(false)
+      }
+      setPendingSuggestions(null)
+    } catch (err) {
+      const msg = err?.message || 'Error al aplicar descripciones.'
+      setError(msg)
+      setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Rechazar / cancelar sugerencias ──
+  function handleCancelarSugerencias() {
+    setPendingSuggestions(null)
+    setMessages((prev) => [...prev, {
+      role: 'assistant',
+      content: '❌ Sugerencias canceladas. Puedes pedirme que genere nuevas descripciones cuando quieras.',
+    }])
+  }
+
   return (
     <div className={`chatbot-root ${open ? 'is-open' : 'is-closed'}`}>
       <div className="chatbot-card chatbot-card-modern">
@@ -171,6 +281,97 @@ export default function ChatBotPanel({ open, onToggle, proposalDraft, onProposal
 
         {open && (
           <>
+            {/* ── Botón para sugerir descripciones cuando hay perfiles sin descripción ── */}
+            {proposalDraft && profilesWithoutDescription > 0 && !pendingSuggestions && (
+              <div className="chatbot-complete-panel" style={{
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, #1a3a2a 0%, #0d2818 100%)',
+                borderBottom: '1px solid #2ecc7133',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}>
+                <span style={{ color: '#ffd700', fontSize: 13 }}>
+                  ⚠️ {profilesWithoutDescription} perfil(es) sin descripción
+                </span>
+                <button
+                  type="button"
+                  className="chatbot-complete-btn"
+                  onClick={handleSugerirDescripciones}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {loading ? '⏳ Generando…' : '🤖 Sugerir descripciones con IA'}
+                </button>
+              </div>
+            )}
+
+            {/* ── Botones de aprobar/rechazar cuando hay sugerencias pendientes ── */}
+            {pendingSuggestions && (
+              <div className="chatbot-complete-panel" style={{
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, #1a4a2a 0%, #0d3818 100%)',
+                borderBottom: '1px solid #f39c1233',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}>
+                <span style={{ color: '#2ecc71', fontSize: 13, fontWeight: 600 }}>
+                  ✅ {pendingSuggestions.descripciones.length} sugerencia(s) lista(s)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAprobarDescripciones}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  {loading ? '⏳ Aplicando…' : '✅ Aprobar y aplicar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelarSugerencias}
+                  disabled={loading}
+                  style={{
+                    background: 'transparent',
+                    color: '#e74c3c',
+                    border: '1px solid #e74c3c',
+                    borderRadius: 6,
+                    padding: '5px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  ❌ Cancelar
+                </button>
+              </div>
+            )}
+
             {/* ── Sección: adjuntar archivos / imágenes ── */}
             <div className="chatbot-file-panel">
               <label className="chatbot-file-label" htmlFor="chat-file-upload">

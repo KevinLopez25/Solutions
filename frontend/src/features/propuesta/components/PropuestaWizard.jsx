@@ -37,6 +37,9 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     generate,
     downloadProposal,
     iaAlcance, setIaAlcance,
+    templateName, setTemplateName,
+    applyingTemplate,
+    applyTemplateToProposal,
   } = usePropuesta()
 
   const excelVacio = !excelData || (excelData.torres?.length ?? 0) === 0
@@ -154,13 +157,18 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     setUploadingTemplate(true)
     setTemplateMsg(null)
     try {
+      // Usamos el nombre original del archivo (incluye extensión .pptx)
+      const originalName = file.name
       const result = await subirPlantillaTemplate({
         file,
         filial,
         section: 'default',
-        templateName: file.name.replace(/\.pptx$/i, ''),
+        templateName: originalName,
       })
-      setTemplateMsg({ ok: true, text: `Plantilla cargada: ${result.template_name}` })
+      // Guardamos el nombre exacto que devolvió el backend
+      const savedName = result.template_name
+      setTemplateName(savedName)
+      setTemplateMsg({ ok: true, text: `Plantilla cargada: ${savedName}` })
     } catch (err) {
       const detail = err?.response?.data?.detail || err?.message || 'No se pudo cargar la plantilla.'
       setTemplateMsg({ ok: false, text: detail })
@@ -208,7 +216,33 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
       {/* ── Sticky header ── */}
       <header className="hdr">
         <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
-          <div className="logo-gem">P</div>
+          <div className="logo-gem">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', width: '100%', height: '100%', padding: 4 }}>
+              {/* Cabeza del robot */}
+              <rect x="9" y="7" width="14" height="10" rx="2.5" fill="currentColor"/>
+              {/* Antenas */}
+              <rect x="14" y="4" width="4" height="3" rx="1" fill="currentColor"/>
+              <circle cx="16" cy="3" r="1.5" fill="currentColor" opacity="0.9"/>
+              {/* Ojos */}
+              <rect x="11" y="9" width="3.5" height="3" rx="1" fill="#000"/>
+              <rect x="17.5" y="9" width="3.5" height="3" rx="1" fill="#000"/>
+              {/* Pupilas */}
+              <rect x="12.5" y="9.8" width="1.2" height="1.2" rx="0.6" fill="#00E676"/>
+              <rect x="19" y="9.8" width="1.2" height="1.2" rx="0.6" fill="#00E676"/>
+              {/* Boca sonrisa */}
+              <path d="M12 14.5 Q16 17 20 14.5" stroke="#000" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+              {/* Cuerpo */}
+              <rect x="8" y="17" width="16" height="9" rx="2" fill="currentColor" opacity="0.85"/>
+              {/* Panel central */}
+              <rect x="13" y="19" width="6" height="5" rx="1" fill="#000" opacity="0.4"/>
+              <circle cx="14.5" cy="20.5" r="0.6" fill="#00E676" opacity="0.8"/>
+              <circle cx="16" cy="22.5" r="0.6" fill="#00E676" opacity="0.6"/>
+              <circle cx="17.5" cy="20.5" r="0.6" fill="#00E676" opacity="0.8"/>
+              {/* Brazos */}
+              <rect x="4" y="11" width="4" height="2.5" rx="1.2" fill="currentColor" opacity="0.7"/>
+              <rect x="24" y="11" width="4" height="2.5" rx="1.2" fill="currentColor" opacity="0.7"/>
+            </svg>
+          </div>
           <div>
             <div className="logo-name">Periferia</div>
             <div className="logo-sub">Generador RFI</div>
@@ -656,6 +690,51 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                   <p style={{ marginTop: 8, fontSize: 13, color: templateMsg.ok ? 'var(--accent)' : '#f87171' }}>
                     {templateMsg.ok ? '✅' : '⚠️'} {templateMsg.text}
                   </p>
+                )}
+
+                {/* Mostrar plantilla cargada y botón para aplicarla */}
+                {templateName && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                    <div className="sr">
+                      <span className="sr-l"><span>🎨</span>Plantilla activa</span>
+                      <span className="stag y">{templateName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginTop: 10, width: '100%' }}
+                      onClick={async () => {
+                        const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
+                        setTemplateMsg(null)
+                        const draft = await applyTemplateToProposal(efectivos)
+                        if (draft) {
+                          if (logoFile) {
+                            try {
+                              const { content_b64 } = await reemplazarLogo({
+                                content_b64: draft.content_b64,
+                                logo_b64: logoFile.b64,
+                                logo_mime: logoFile.mimeType,
+                              })
+                              draft.content_b64 = content_b64
+                            } catch (err) {
+                              const detail = err?.response?.data?.detail || err?.message || 'Error al aplicar el logo.'
+                              setLogoMsg({ ok: false, text: detail })
+                            }
+                          }
+                          if (onDraftGenerated) onDraftGenerated(draft)
+                          setTemplateMsg({ ok: true, text: '✅ Plantilla aplicada con éxito. La propuesta se regeneró con la nueva plantilla.' })
+                        }
+                      }}
+                      disabled={applyingTemplate || loading}
+                    >
+                      {applyingTemplate || loading ? '⏳ Aplicando plantilla...' : '🎨 Aplicar plantilla a la propuesta'}
+                    </button>
+                    {applyingTemplate && (
+                      <p style={{ marginTop: 8, fontSize: 13, color: 'var(--accent)' }}>
+                        ⏳ Regenerando la propuesta con la plantilla seleccionada...
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
