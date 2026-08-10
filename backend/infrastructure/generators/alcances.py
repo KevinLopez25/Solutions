@@ -46,29 +46,103 @@ _PH_RE = re.compile(r'X{3,}', re.IGNORECASE)
 _ROADMAP_MARKERS = {'start', 'finish', 'xxxxxxx'}
 _ROADMAP_KEYWORDS = {'roadmap'}
 
-# ── Configuración de tarjetas visuales ────────────────────────────────────────
-# Degradado horizontal: azul → teal → verde (CSS: linear-gradient(90deg, #1D5780, #198676, #0BAA54))
-_VISUAL_GRADIENT_STOPS = [
-    (0,      '1D5780'),   # Azul profundo (0%)
-    (50000,  '198676'),   # Teal/verde azulado (50%)
-    (100000, '0BAA54'),   # Verde brillante (100%)
-]
-_VISUAL_GRADIENT_ANGLE = 0          # 0° = horizontal (left to right)
-_VISUAL_TEXT_COLOR     = 'FFFFFF'   # blanco
-_VISUAL_DESC_COLOR     = 'ECFAED'  # blanco verdoso suave
-_VISUAL_CARD_RADIUS    = 70000      # ~8px en EMU (más pequeño)
-_VISUAL_CARD_GAP       = 50000      # espacio entre filas
-_VISUAL_COLUMN_GAP     = 60000      # espacio entre columnas
-_VISUAL_LEFT_MARGIN    = 400000     # margen izquierdo
-_VISUAL_CONTENT_WIDTH  = 8_344_000  # ancho total disponible
-_VISUAL_GRID_COLS      = 2          # número de columnas
-_VISUAL_CARD_WIDTH     = 4_100_000  # ancho de cada tarjeta (calculado: (8_344_000 - 60_000) / 2 ≈ 4_142_000)
-_VISUAL_START_Y        = 1_100_000  # Y inicial después del título
-_VISUAL_CONTENT_HEIGHT = 3_900_000 # altura disponible para contenido
-_VISUAL_CARD_MIN_HEIGHT = 250_000   # altura mínima por tarjeta
-_VISUAL_CARD_MAX_HEIGHT = 1_500_000 # altura máxima por tarjeta (permite textos largos)
-_VISUAL_TITLE_FONT     = 1200       # tamaño de fuente del título
-_VISUAL_DESC_FONT      = 900        # tamaño de fuente de la descripción
+# ── Configuración de tarjetas visuales (marca Periferia) ──────────────────────
+# Paleta corporativa:
+#   Verde principal  #1E7A3D   |   Verde oscuro  #0F5C2A   |   Gris texto  #595959
+_BRAND_GREEN        = '1E7A3D'
+_BRAND_GREEN_DARK   = '0F5C2A'
+_BRAND_TEXT_GRAY    = '595959'
+_BRAND_CARD_BG      = 'FFFFFF'
+_BRAND_CARD_BG_SOFT = 'F4F9F5'
+
+_VISUAL_CARD_BG        = _BRAND_CARD_BG        # blanco limpio corporativo
+_VISUAL_TITLE_COLOR    = _BRAND_GREEN_DARK     # título en verde oscuro de marca
+_VISUAL_DESC_COLOR     = _BRAND_TEXT_GRAY      # descripción en gris de marca
+_VISUAL_CARD_RADIUS    = 55000                 # ~6px esquinas redondeadas
+_VISUAL_CUT_TOP_R      = 12000                 # corte diagonal esquina sup. derecha (12%, más pequeño que antes para no robar tanto espacio)
+_VISUAL_STRIPE_W       = 45000                 # ancho franja lateral de acento
+_VISUAL_BADGE_SIZE     = 240000               # badge circular un poco más pequeño
+_VISUAL_BADGE_GAP      = 140000               # separación badge → texto
+_VISUAL_CARD_GAP       = 50000                 # espacio entre filas
+_VISUAL_COLUMN_GAP     = 60000                 # espacio entre columnas
+_VISUAL_LEFT_MARGIN    = 400000                # margen izquierdo
+_VISUAL_CONTENT_WIDTH  = 8_344_000             # ancho total disponible
+_VISUAL_GRID_COLS      = 2                     # número de columnas
+_VISUAL_CARD_WIDTH     = 4_100_000             # ancho de cada tarjeta
+_VISUAL_START_Y        = 1_100_000             # Y inicial después del título
+_VISUAL_CONTENT_HEIGHT = 3_900_000             # altura disponible para contenido
+_VISUAL_CARD_MIN_HEIGHT = 340_000              # altura mínima por tarjeta
+_VISUAL_CARD_MAX_HEIGHT = 1_400_000            # altura máxima por tarjeta (permite textos largos)
+_VISUAL_TITLE_FONT     = 1300                  # ~13pt título en negrita
+_VISUAL_DESC_FONT      = 950                   # ~9.5pt descripción regular
+
+# ── Tonos verdes corporativos (familia #1E7A3D – #0F5C2A) para categorías ─────
+# Todas las categorías usan VARIACIONES de verde, simulando distinción por intensidad.
+_BRAND_GREEN_LIGHT = 'A3D9A5'   # verde claro suave (franja)
+_BRAND_GREEN_MID   = '5EAA68'   # verde medio
+_BRAND_GREEN_DEEP  = '1A512E'   # verde profundo
+
+# ── Diccionario de categorías de alcance → color de acento / icono SVG ────────
+# Estructura simple para agregar categorías nuevas SIN tocar la lógica de tarjetas:
+#   'nombre': {
+#       'keywords':   (términos que activan la categoría automáticamente),
+#       'color':      color de acento (franja lateral, etiqueta),
+#       'color_dark': color oscuro (badge circular del ítem),
+#       'badge_bg':   fondo suave para futuros usos,
+#       'icono_svg':  RUTA DEL ARCHIVO SVG (lo defines al agregar la categoría),
+#   }
+_CATEGORIAS = {
+    'desarrollo': {
+        'keywords':   ('desarrollo', 'full stack', 'fullstack', 'software', 'codificación', 'codificacion',
+                       'programación', 'programacion', 'aplicación', 'aplicacion', 'app', 'web', 'frontend',
+                       'backend', 'api', 'módulo', 'modulo', 'integración', 'integracion', 'implementación', 'implementacion'),
+        'color':      _BRAND_GREEN,          # #1E7A3D
+        'color_dark': _BRAND_GREEN_DARK,     # #0F5C2A
+        'badge_bg':   'E1F1E6',
+        'icono_svg':  None,
+    },
+    'infraestructura': {
+        'keywords':   ('infraestructura', 'servidor', 'servidores', 'nube', 'cloud', 'red', 'redes',
+                       'almacenamiento', 'despliegue', 'devops', 'contenedor', 'contenedores', 'docker',
+                       'kubernetes', 'virtualización', 'virtualizacion', 'ci/cd', 'infra'),
+        'color':      _BRAND_GREEN_MID,      # #5EAA68
+        'color_dark': _BRAND_GREEN_DEEP,     # #1A512E
+        'badge_bg':   'E4F2E6',
+        'icono_svg':  None,
+    },
+    'datos': {
+        'keywords':   ('datos', 'data', 'base de datos', 'sql', 'analítica', 'analitica', 'reporte',
+                       'reportes', 'dashboard', 'etl', 'modelo de datos', 'información', 'informacion',
+                       'gestión de datos', 'gestion de datos', 'data warehouse'),
+        'color':      _BRAND_GREEN_LIGHT,    # #A3D9A5
+        'color_dark': _BRAND_GREEN_MID,      # #5EAA68
+        'badge_bg':   'EAF6EB',
+        'icono_svg':  None,
+    },
+    'seguridad': {
+        'keywords':   ('seguridad', 'cyber', 'ciberseguridad', 'autenticación', 'autenticacion', 'acceso',
+                       'permisos', 'encriptación', 'encriptacion', 'firewall', 'vulnerabilidad', 'auditoría', 'auditoria'),
+        'color':      _BRAND_GREEN_DEEP,     # #1A512E
+        'color_dark': _BRAND_GREEN_DARK,     # #0F5C2A
+        'badge_bg':   'DCEFE0',
+        'icono_svg':  None,
+    },
+    'calidad': {
+        'keywords':   ('calidad', 'qa', 'testing', 'pruebas', 'test', 'garantía', 'garantia', 'validación',
+                       'validacion', 'certificación', 'certificacion', 'aseguramiento', 'control de calidad'),
+        'color':      _BRAND_GREEN_MID,      # #5EAA68
+        'color_dark': _BRAND_GREEN_DEEP,     # #1A512E
+        'badge_bg':   'E4F2E6',
+        'icono_svg':  None,
+    },
+    'default': {
+        'keywords':   (),
+        'color':      _BRAND_GREEN,
+        'color_dark': _BRAND_GREEN_DARK,
+        'badge_bg':   _BRAND_CARD_BG_SOFT,
+        'icono_svg':  None,
+    },
+}
 
 # ── Prompt IA ─────────────────────────────────────────────────────────────────
 _IA_SYSTEM = (
@@ -573,31 +647,55 @@ def _make_overflow_xml(template_xml: bytes, torre: str, items: list[dict]) -> by
 
 # ── Slides de overflow (formato visual con tarjetas) ──────────────────────────
 
+def _detectar_categoria(titulo: str, texto: str) -> dict:
+    """
+    Detecta la categoría de un alcance según sus keywords.
+
+    Retorna la config completa de _CATEGORIAS (con 'default' como fallback).
+    Es el punto único de mapeo categoría → color/icono: agrega categorías
+    nuevas en _CATEGORIAS sin tocar la lógica de tarjetas.
+    """
+    titulo_n = (titulo or '').lower()
+    texto_n  = (texto  or '').lower()
+    for nombre, cfg in _CATEGORIAS.items():
+        if nombre == 'default':
+            continue
+        for kw in cfg['keywords']:
+            if kw in titulo_n or kw in texto_n:
+                return cfg
+    return _CATEGORIAS['default']
+
+
 def _add_card_shape(sp_tree, shape_id: int, name: str,
                     x: int, y: int, cx: int, cy: int,
-                    grad_stops: list[tuple[int, str]] | None = None,
-                    grad_angle: int = 0) -> etree._Element:
+                    categoria_cfg: dict | None = None,
+                    badge_text: str = '') -> etree._Element:
     """
-    Crea un shape con fondo degradado (multi‑stop) y bordes redondeados.
-    
-    grad_stops: lista de (pos_1/100000, color_hex) ej: [(0,'1D5780'), (50000,'198676'), (100000,'0BAA54')]
-    grad_angle: 0=horizontal izquierda→derecha, 2700000=vertical arriba→abajo
+    Crea una tarjeta corporativa de marca Periferia:
+      - Fondo blanco con borde redondeado y sombra suave.
+      - Franja lateral de acento (color de categoría).
+      - Corte diagonal "tech frame" en la esquina superior derecha.
+      - Badge circular con el color oscuro de la categoría y el número del ítem
+        (soporte futuro: reemplazar el número por el icono SVG indicado en _CATEGORIAS).
+
+    categoria_cfg: dict desde _CATEGORIAS; usa default si no se pasa.
     """
     from lxml import etree as _etree
 
-    if grad_stops is None:
-        grad_stops = _VISUAL_GRADIENT_STOPS
+    if categoria_cfg is None:
+        categoria_cfg = _CATEGORIAS['default']
 
+    accent    = categoria_cfg.get('color',      _BRAND_GREEN)
+    accent_dk = categoria_cfg.get('color_dark', _BRAND_GREEN_DARK)
+
+    # ── Tarjeta base (fondo blanco, esquinas redondeadas, sombra suave) ──
     sp = _etree.SubElement(sp_tree, f'{{{P}}}sp')
-
     nvSpPr  = _etree.SubElement(sp, f'{{{P}}}nvSpPr')
     cNvPr   = _etree.SubElement(nvSpPr, f'{{{P}}}cNvPr')
     cNvPr.attrib['id']   = str(shape_id)
     cNvPr.attrib['name'] = name
     cNvSpPr = _etree.SubElement(nvSpPr, f'{{{P}}}cNvSpPr')
     cNvSpPr.attrib['txBox'] = '1'
-    spLocks = _etree.SubElement(cNvSpPr, f'{{{A}}}spLocks')
-    spLocks.attrib['noGrp'] = '1'
     _etree.SubElement(nvSpPr, f'{{{P}}}nvPr')
 
     spPr  = _etree.SubElement(sp, f'{{{P}}}spPr')
@@ -609,7 +707,6 @@ def _add_card_shape(sp_tree, shape_id: int, name: str,
     ext.attrib['cx'] = str(cx)
     ext.attrib['cy'] = str(cy)
 
-    # Geometría redondeada
     prstG = _etree.SubElement(spPr, f'{{{A}}}prstGeom')
     prstG.attrib['prst'] = 'roundRect'
     avLst = _etree.SubElement(prstG, f'{{{A}}}avLst')
@@ -617,30 +714,139 @@ def _add_card_shape(sp_tree, shape_id: int, name: str,
     gd.attrib['name'] = 'adj'
     gd.attrib['fmla'] = f'val {_VISUAL_CARD_RADIUS}'
 
-    # Degradado lineal multi‑stop
-    gradFill = _etree.SubElement(spPr, f'{{{A}}}gradFill')
-    gsLst = _etree.SubElement(gradFill, f'{{{A}}}gsLst')
-    for pos, color in grad_stops:
-        gs = _etree.SubElement(gsLst, f'{{{A}}}gs')
-        gs.attrib['pos'] = str(pos)
-        clr = _etree.SubElement(gs, f'{{{A}}}srgbClr')
-        clr.attrib['val'] = color
-    lin = _etree.SubElement(gradFill, f'{{{A}}}lin')
-    lin.attrib['ang'] = str(grad_angle)
-    lin.attrib['scaled'] = '0'
+    # Fondo blanco corporativo
+    _efill = _etree.SubElement(spPr, f'{{{A}}}solidFill')
+    _eclr  = _etree.SubElement(_efill, f'{{{A}}}srgbClr')
+    _eclr.attrib['val'] = _VISUAL_CARD_BG
 
-    # Auto‑ajuste para que el texto nunca se salga de la tarjeta
+    # Borde sutil gris-verde
+    _eln = _etree.SubElement(spPr, f'{{{A}}}ln')
+    _eln.attrib['w'] = '12700'  # 1pt
+    _eln_sf = _etree.SubElement(_eln, f'{{{A}}}solidFill')
+    _eln_cl = _etree.SubElement(_eln_sf, f'{{{A}}}srgbClr')
+    _eln_cl.attrib['val'] = 'D9E4DC'
+
+    # Sombra suave (estilo "tech frame")
+    _eff = _etree.SubElement(spPr, f'{{{A}}}effectLst')
+    _shd = _etree.SubElement(_eff, f'{{{A}}}outerShdw')
+    _shd.attrib['blurRad'] = '90000'
+    _shd.attrib['dist']    = '40000'
+    _shd.attrib['dir']     = '5400000'
+    _shd.attrib['rotWithShape'] = '0'
+    _shd_sf = _etree.SubElement(_shd, f'{{{A}}}srgbClr')
+    _shd_sf.attrib['val'] = '1E3A2A'
+    _shd_a  = _etree.SubElement(_shd_sf, f'{{{A}}}alpha')
+    _shd_a.attrib['val']  = '22000'
+
+    # Área de texto: deja espacio para franja + badge a la izquierda,
+    # y margen derecho amplio para que el triángulo diagonal NO se superponga.
+    cut_w = int(cx * _VISUAL_CUT_TOP_R / 100000)
     txBody = _etree.SubElement(sp, f'{{{P}}}txBody')
     bodyPr = _etree.SubElement(txBody, f'{{{A}}}bodyPr')
     bodyPr.attrib['wrap']   = 'square'
     bodyPr.attrib['rtlCol'] = '0'
-    bodyPr.attrib['lIns']   = '180000'  # 0.2″ margen interno
-    bodyPr.attrib['rIns']   = '180000'
-    bodyPr.attrib['tIns']   = '100000'
-    bodyPr.attrib['bIns']   = '100000'
-    # normAutofit reduce el tamaño de fuente automáticamente si el texto es grande
+    bodyPr.attrib['lIns']   = str(_VISUAL_STRIPE_W + _VISUAL_BADGE_SIZE + _VISUAL_BADGE_GAP + 60000)
+    bodyPr.attrib['rIns']   = str(cut_w + 120000)  # margen derecho = ancho del triángulo + holgura
+    bodyPr.attrib['tIns']   = '140000'
+    bodyPr.attrib['bIns']   = '120000'
     _etree.SubElement(bodyPr, f'{{{A}}}normAutofit')
     _etree.SubElement(txBody, f'{{{A}}}lstStyle')
+
+    # ── Franja lateral de acento (color de categoría) ──
+    stripe = _etree.SubElement(sp_tree, f'{{{P}}}sp')
+    s_nv   = _etree.SubElement(stripe, f'{{{P}}}nvSpPr')
+    s_cn   = _etree.SubElement(s_nv, f'{{{P}}}cNvPr')
+    s_cn.attrib['id']   = str(shape_id) + '01'
+    s_cn.attrib['name'] = name + '_stripe'
+    _etree.SubElement(s_nv, f'{{{P}}}cNvSpPr')
+    _etree.SubElement(s_nv, f'{{{P}}}nvPr')
+    s_spPr = _etree.SubElement(stripe, f'{{{P}}}spPr')
+    s_xfrm = _etree.SubElement(s_spPr, f'{{{A}}}xfrm')
+    s_off  = _etree.SubElement(s_xfrm, f'{{{A}}}off')
+    s_off.attrib['x'] = str(x)
+    s_off.attrib['y'] = str(y + 60000)
+    s_ext  = _etree.SubElement(s_xfrm, f'{{{A}}}ext')
+    s_ext.attrib['cx'] = str(_VISUAL_STRIPE_W)
+    s_ext.attrib['cy'] = str(cy - 120000)
+    s_prst = _etree.SubElement(s_spPr, f'{{{A}}}prstGeom')
+    s_prst.attrib['prst'] = 'roundRect'
+    _etree.SubElement(s_prst, f'{{{A}}}avLst')
+    s_fill = _etree.SubElement(s_spPr, f'{{{A}}}solidFill')
+    s_clr  = _etree.SubElement(s_fill, f'{{{A}}}srgbClr')
+    s_clr.attrib['val'] = accent
+
+    # ── Corte diagonal "tech frame" (esquina superior derecha) ──
+    cut_w = int(cx * _VISUAL_CUT_TOP_R / 100000)
+    cut = _etree.SubElement(sp_tree, f'{{{P}}}sp')
+    c_nv  = _etree.SubElement(cut, f'{{{P}}}nvSpPr')
+    c_cn  = _etree.SubElement(c_nv, f'{{{P}}}cNvPr')
+    c_cn.attrib['id']   = str(shape_id) + '02'
+    c_cn.attrib['name'] = name + '_cut'
+    _etree.SubElement(c_nv, f'{{{P}}}cNvSpPr')
+    _etree.SubElement(c_nv, f'{{{P}}}nvPr')
+    c_spPr = _etree.SubElement(cut, f'{{{P}}}spPr')
+    c_xfrm = _etree.SubElement(c_spPr, f'{{{A}}}xfrm')
+    c_off  = _etree.SubElement(c_xfrm, f'{{{A}}}off')
+    c_off.attrib['x'] = str(x + cx - cut_w)
+    c_off.attrib['y'] = str(y)
+    c_ext  = _etree.SubElement(c_xfrm, f'{{{A}}}ext')
+    c_ext.attrib['cx'] = str(cut_w)
+    c_ext.attrib['cy'] = str(cut_w)
+    c_prst = _etree.SubElement(c_spPr, f'{{{A}}}prstGeom')
+    c_prst.attrib['prst'] = 'rtTriangle'
+    _etree.SubElement(c_prst, f'{{{A}}}avLst')
+    c_fill = _etree.SubElement(c_spPr, f'{{{A}}}solidFill')
+    c_clr  = _etree.SubElement(c_fill, f'{{{A}}}srgbClr')
+    c_clr.attrib['val'] = accent_dk
+
+    # ── Badge circular con número del ítem (o icono SVG futuro) ──
+    if badge_text:
+        badge = _etree.SubElement(sp_tree, f'{{{P}}}sp')
+        b_nv  = _etree.SubElement(badge, f'{{{P}}}nvSpPr')
+        b_cn  = _etree.SubElement(b_nv, f'{{{P}}}cNvPr')
+        b_cn.attrib['id']   = str(shape_id) + '03'
+        b_cn.attrib['name'] = name + '_badge'
+        _etree.SubElement(b_nv, f'{{{P}}}cNvSpPr')
+        _etree.SubElement(b_nv, f'{{{P}}}nvPr')
+        b_spPr = _etree.SubElement(badge, f'{{{P}}}spPr')
+        b_xfrm = _etree.SubElement(b_spPr, f'{{{A}}}xfrm')
+        b_off  = _etree.SubElement(b_xfrm, f'{{{A}}}off')
+        b_off.attrib['x'] = str(x + _VISUAL_STRIPE_W + 100000)
+        b_off.attrib['y'] = str(y + 140000)
+        b_ext  = _etree.SubElement(b_xfrm, f'{{{A}}}ext')
+        b_ext.attrib['cx'] = str(_VISUAL_BADGE_SIZE)
+        b_ext.attrib['cy'] = str(_VISUAL_BADGE_SIZE)
+        b_prst = _etree.SubElement(b_spPr, f'{{{A}}}prstGeom')
+        b_prst.attrib['prst'] = 'ellipse'
+        _etree.SubElement(b_prst, f'{{{A}}}avLst')
+        b_fill = _etree.SubElement(b_spPr, f'{{{A}}}solidFill')
+        b_clr  = _etree.SubElement(b_fill, f'{{{A}}}srgbClr')
+        b_clr.attrib['val'] = accent_dk
+
+        b_txb = _etree.SubElement(badge, f'{{{P}}}txBody')
+        b_bp  = _etree.SubElement(b_txb, f'{{{A}}}bodyPr')
+        b_bp.attrib['lIns'] = '0'
+        b_bp.attrib['rIns'] = '0'
+        b_bp.attrib['tIns'] = '0'
+        b_bp.attrib['bIns'] = '0'
+        b_bp.attrib['anchor'] = 'ctr'
+        _etree.SubElement(b_txb, f'{{{A}}}lstStyle')
+        b_p   = _etree.SubElement(b_txb, f'{{{A}}}p')
+        b_pPr = _etree.SubElement(b_p, f'{{{A}}}pPr')
+        _etree.SubElement(b_pPr, f'{{{A}}}buNone')
+        b_r   = _etree.SubElement(b_p, f'{{{A}}}r')
+        b_rPr = _etree.SubElement(b_r, f'{{{A}}}rPr')
+        b_rPr.attrib['lang']  = 'es-CO'
+        b_rPr.attrib['sz']    = '1200'
+        b_rPr.attrib['b']     = '1'
+        b_rPr.attrib['dirty'] = '0'
+        b_rPr.attrib['align'] = 'ctr'
+        b_rPr.attrib['baseline'] = '0'
+        b_sf  = _etree.SubElement(b_rPr, f'{{{A}}}solidFill')
+        b_scl = _etree.SubElement(b_sf, f'{{{A}}}srgbClr')
+        b_scl.attrib['val'] = 'FFFFFF'
+        b_t   = _etree.SubElement(b_r, f'{{{A}}}t')
+        b_t.text = badge_text
 
     return sp
 
@@ -653,7 +859,7 @@ def _add_card_para(txBody, text: str, sz: int, bold: bool,
     etree.SubElement(pPr, f'{{{A}}}buNone')  # sin viñetas
     if is_title:
         spcA = etree.SubElement(pPr, f'{{{A}}}spcAft')
-        spcA.attrib['spcPts'] = '60'  # ~6pt spacing after title
+        spcA.attrib['spcPts'] = '80'  # ~8pt spacing after title
     r   = etree.SubElement(p, f'{{{A}}}r')
     rPr = etree.SubElement(r, f'{{{A}}}rPr')
     rPr.attrib['lang']  = 'es-CO'
@@ -777,10 +983,13 @@ def _calculate_row_heights(items: list[dict], cols: int = 2) -> list[int]:
 
 def _make_overflow_xml_visual(template_xml: bytes, torre: str, items: list[dict]) -> bytes:
     """
-    Slide de overflow con TARJETAS VISUALES en GRID DE 2 COLUMNAS.
-    Cada ítem se muestra en una tarjeta con degradado horizontal de 3 colores
-    (azul → teal → verde), bordes redondeados, tipografía clara y compacta.
-    - Las tarjetas se organizan en 2 columnas × 3 filas.
+    Slide de overflow con TARJETAS VISUALES de marca en GRID DE 2 COLUMNAS.
+    Cada ítem se muestra en una tarjeta blanca corporativa con:
+      - Franja lateral de acento según categoría detectada (diccionario _CATEGORIAS).
+      - Corte diagonal "tech frame" en la esquina superior derecha.
+      - Badge circular numerado por categoría.
+      - Título en verde oscuro #0F5C2A, descripción en gris #595959.
+    - Las tarjetas se organizan en 2 columnas × N filas.
     - La altura de cada fila es proporcional al contenido más largo de esa fila.
     - normAutofit evita que el texto se desborde.
     """
@@ -808,7 +1017,7 @@ def _make_overflow_xml_visual(template_xml: bytes, torre: str, items: list[dict]
                             cx=8_229_600, cy=750_000)
     _add_para(title_body,
               f'Alcance Técnico del Servicio — {torre}',
-              sz=2400, bold=True, color_hex='1A5C38')
+              sz=2400, bold=True, color_hex=_BRAND_GREEN_DARK)
 
     # ── Separador visual ──────────────────────────────────────────────────────
     sep = etree.SubElement(sp_tree, f'{{{P}}}sp')
@@ -831,7 +1040,7 @@ def _make_overflow_xml_visual(template_xml: bytes, torre: str, items: list[dict]
     etree.SubElement(sep_prstG, f'{{{A}}}avLst')
     sep_sf  = etree.SubElement(sep_spPr, f'{{{A}}}solidFill')
     sep_clr = etree.SubElement(sep_sf,  f'{{{A}}}srgbClr')
-    sep_clr.attrib['val'] = '1A5C38'
+    sep_clr.attrib['val'] = _BRAND_GREEN
 
     # ── Calcular alturas de filas ─────────────────────────────────────────────
     row_heights = _calculate_row_heights(items, cols=_VISUAL_GRID_COLS)
@@ -865,19 +1074,22 @@ def _make_overflow_xml_visual(template_xml: bytes, torre: str, items: list[dict]
             card_id = 300 + card_idx
             card_idx += 1
 
+            # Detectar categoría automáticamente (color de acento + badge)
+            categoria_cfg = _detectar_categoria(titulo, texto)
+
             card = _add_card_shape(
                 sp_tree, card_id, f'card_{card_idx}',
                 x=x_pos, y=y_cursor,
                 cx=card_w, cy=row_h,
-                grad_stops=_VISUAL_GRADIENT_STOPS,
-                grad_angle=_VISUAL_GRADIENT_ANGLE,
+                categoria_cfg=categoria_cfg,
+                badge_text=str(card_idx),
             )
 
             txBody = card.find(f'{{{P}}}txBody')
             if txBody is not None:
                 _add_card_para(txBody, titulo,
                                sz=_VISUAL_TITLE_FONT, bold=True,
-                               color_hex=_VISUAL_TEXT_COLOR,
+                               color_hex=_VISUAL_TITLE_COLOR,
                                is_title=True)
                 if texto and texto != titulo:
                     _add_card_para(txBody, texto,
@@ -936,8 +1148,9 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
 
         print(f'[ALCANCES] Torre "{torre}" — {len(items)} items, IA={usar_ia}')
 
-        # Elegir formato según si la IA está activada
-        render_fn = _make_overflow_xml_visual if usar_ia else _make_overflow_xml
+        # Presentación SIEMPRE con tarjetas visuales de marca (la IA solo
+        # enriquece el texto; la lógica de extracción del Excel no cambia).
+        render_fn = _make_overflow_xml_visual
 
         # Un slide por cada chunk de ITEMS_PER_OVERFLOW items
         for i in range(0, len(items), ITEMS_PER_OVERFLOW):
