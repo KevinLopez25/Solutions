@@ -46,6 +46,30 @@ _PH_RE = re.compile(r'X{3,}', re.IGNORECASE)
 _ROADMAP_MARKERS = {'start', 'finish', 'xxxxxxx'}
 _ROADMAP_KEYWORDS = {'roadmap'}
 
+# ── Configuración de tarjetas visuales ────────────────────────────────────────
+# Degradado horizontal: azul → teal → verde (CSS: linear-gradient(90deg, #1D5780, #198676, #0BAA54))
+_VISUAL_GRADIENT_STOPS = [
+    (0,      '1D5780'),   # Azul profundo (0%)
+    (50000,  '198676'),   # Teal/verde azulado (50%)
+    (100000, '0BAA54'),   # Verde brillante (100%)
+]
+_VISUAL_GRADIENT_ANGLE = 0          # 0° = horizontal (left to right)
+_VISUAL_TEXT_COLOR     = 'FFFFFF'   # blanco
+_VISUAL_DESC_COLOR     = 'ECFAED'  # blanco verdoso suave
+_VISUAL_CARD_RADIUS    = 70000      # ~8px en EMU (más pequeño)
+_VISUAL_CARD_GAP       = 50000      # espacio entre filas
+_VISUAL_COLUMN_GAP     = 60000      # espacio entre columnas
+_VISUAL_LEFT_MARGIN    = 400000     # margen izquierdo
+_VISUAL_CONTENT_WIDTH  = 8_344_000  # ancho total disponible
+_VISUAL_GRID_COLS      = 2          # número de columnas
+_VISUAL_CARD_WIDTH     = 4_100_000  # ancho de cada tarjeta (calculado: (8_344_000 - 60_000) / 2 ≈ 4_142_000)
+_VISUAL_START_Y        = 1_100_000  # Y inicial después del título
+_VISUAL_CONTENT_HEIGHT = 3_900_000 # altura disponible para contenido
+_VISUAL_CARD_MIN_HEIGHT = 250_000   # altura mínima por tarjeta
+_VISUAL_CARD_MAX_HEIGHT = 1_500_000 # altura máxima por tarjeta (permite textos largos)
+_VISUAL_TITLE_FONT     = 1200       # tamaño de fuente del título
+_VISUAL_DESC_FONT      = 900        # tamaño de fuente de la descripción
+
 # ── Prompt IA ─────────────────────────────────────────────────────────────────
 _IA_SYSTEM = (
     "Eres un redactor experto de propuestas comerciales de TI. "
@@ -547,6 +571,324 @@ def _make_overflow_xml(template_xml: bytes, torre: str, items: list[dict]) -> by
     return etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
 
 
+# ── Slides de overflow (formato visual con tarjetas) ──────────────────────────
+
+def _add_card_shape(sp_tree, shape_id: int, name: str,
+                    x: int, y: int, cx: int, cy: int,
+                    grad_stops: list[tuple[int, str]] | None = None,
+                    grad_angle: int = 0) -> etree._Element:
+    """
+    Crea un shape con fondo degradado (multi‑stop) y bordes redondeados.
+    
+    grad_stops: lista de (pos_1/100000, color_hex) ej: [(0,'1D5780'), (50000,'198676'), (100000,'0BAA54')]
+    grad_angle: 0=horizontal izquierda→derecha, 2700000=vertical arriba→abajo
+    """
+    from lxml import etree as _etree
+
+    if grad_stops is None:
+        grad_stops = _VISUAL_GRADIENT_STOPS
+
+    sp = _etree.SubElement(sp_tree, f'{{{P}}}sp')
+
+    nvSpPr  = _etree.SubElement(sp, f'{{{P}}}nvSpPr')
+    cNvPr   = _etree.SubElement(nvSpPr, f'{{{P}}}cNvPr')
+    cNvPr.attrib['id']   = str(shape_id)
+    cNvPr.attrib['name'] = name
+    cNvSpPr = _etree.SubElement(nvSpPr, f'{{{P}}}cNvSpPr')
+    cNvSpPr.attrib['txBox'] = '1'
+    spLocks = _etree.SubElement(cNvSpPr, f'{{{A}}}spLocks')
+    spLocks.attrib['noGrp'] = '1'
+    _etree.SubElement(nvSpPr, f'{{{P}}}nvPr')
+
+    spPr  = _etree.SubElement(sp, f'{{{P}}}spPr')
+    xfrm  = _etree.SubElement(spPr, f'{{{A}}}xfrm')
+    off   = _etree.SubElement(xfrm, f'{{{A}}}off')
+    off.attrib['x'] = str(x)
+    off.attrib['y'] = str(y)
+    ext   = _etree.SubElement(xfrm, f'{{{A}}}ext')
+    ext.attrib['cx'] = str(cx)
+    ext.attrib['cy'] = str(cy)
+
+    # Geometría redondeada
+    prstG = _etree.SubElement(spPr, f'{{{A}}}prstGeom')
+    prstG.attrib['prst'] = 'roundRect'
+    avLst = _etree.SubElement(prstG, f'{{{A}}}avLst')
+    gd = _etree.SubElement(avLst, f'{{{A}}}gd')
+    gd.attrib['name'] = 'adj'
+    gd.attrib['fmla'] = f'val {_VISUAL_CARD_RADIUS}'
+
+    # Degradado lineal multi‑stop
+    gradFill = _etree.SubElement(spPr, f'{{{A}}}gradFill')
+    gsLst = _etree.SubElement(gradFill, f'{{{A}}}gsLst')
+    for pos, color in grad_stops:
+        gs = _etree.SubElement(gsLst, f'{{{A}}}gs')
+        gs.attrib['pos'] = str(pos)
+        clr = _etree.SubElement(gs, f'{{{A}}}srgbClr')
+        clr.attrib['val'] = color
+    lin = _etree.SubElement(gradFill, f'{{{A}}}lin')
+    lin.attrib['ang'] = str(grad_angle)
+    lin.attrib['scaled'] = '0'
+
+    # Auto‑ajuste para que el texto nunca se salga de la tarjeta
+    txBody = _etree.SubElement(sp, f'{{{P}}}txBody')
+    bodyPr = _etree.SubElement(txBody, f'{{{A}}}bodyPr')
+    bodyPr.attrib['wrap']   = 'square'
+    bodyPr.attrib['rtlCol'] = '0'
+    bodyPr.attrib['lIns']   = '180000'  # 0.2″ margen interno
+    bodyPr.attrib['rIns']   = '180000'
+    bodyPr.attrib['tIns']   = '100000'
+    bodyPr.attrib['bIns']   = '100000'
+    # normAutofit reduce el tamaño de fuente automáticamente si el texto es grande
+    _etree.SubElement(bodyPr, f'{{{A}}}normAutofit')
+    _etree.SubElement(txBody, f'{{{A}}}lstStyle')
+
+    return sp
+
+
+def _add_card_para(txBody, text: str, sz: int, bold: bool,
+                   color_hex: str, is_title: bool = False):
+    """Agrega un párrafo dentro de una tarjeta visual."""
+    p   = etree.SubElement(txBody, f'{{{A}}}p')
+    pPr = etree.SubElement(p, f'{{{A}}}pPr')
+    etree.SubElement(pPr, f'{{{A}}}buNone')  # sin viñetas
+    if is_title:
+        spcA = etree.SubElement(pPr, f'{{{A}}}spcAft')
+        spcA.attrib['spcPts'] = '60'  # ~6pt spacing after title
+    r   = etree.SubElement(p, f'{{{A}}}r')
+    rPr = etree.SubElement(r, f'{{{A}}}rPr')
+    rPr.attrib['lang']  = 'es-CO'
+    rPr.attrib['sz']    = str(sz)
+    rPr.attrib['b']     = '1' if bold else '0'
+    rPr.attrib['dirty'] = '0'
+    rPr.attrib['kern']  = '1200'  # kerning para mejor legibilidad
+    if color_hex:
+        sf  = etree.SubElement(rPr, f'{{{A}}}solidFill')
+        clr = etree.SubElement(sf,  f'{{{A}}}srgbClr')
+        clr.attrib['val'] = color_hex
+    t       = etree.SubElement(r, f'{{{A}}}t')
+    t.text  = text
+
+
+def _estimate_item_required_height(titulo: str, texto: str) -> int:
+    """
+    Estima la altura mínima en EMU que necesita una tarjeta para mostrar
+    su título y descripción sin que el texto se desborde.
+    
+    Toma en cuenta: ancho disponible, tamaño de fuente, interlineado y márgenes.
+    El normAutofit de PPTX se encargará de reducir la fuente si aún falta espacio.
+    """
+    # Ancho de texto disponible dentro de la tarjeta (card_width - márgenes internos)
+    avail_width = _VISUAL_CARD_WIDTH - 360_000  # 180k left + 180k right
+    # Caracteres aproximados por línea según el ancho y el tamaño de fuente
+    # A 12pt (sz=1200), cada carácter ocupa ~76,000 EMU en promedio
+    title_cpl = max(1, int(avail_width / 76_000))   # ~49 chars/line at 12pt
+    desc_cpl  = max(1, int(avail_width / 58_000))   # ~65 chars/line at 9pt
+    # Altura de línea con interlineado ~1.3x
+    title_lh = 200_000  # ~12pt * 1.3 * 12700
+    desc_lh  = 150_000  # ~9pt * 1.3 * 12700
+    # Espaciado entre título y descripción
+    title_desc_gap = 8_000  # 0.6pt
+    # Márgenes internos (top + bottom)
+    margins = 200_000
+
+    titulo = (titulo or '').strip()
+    texto  = (texto or '').strip()
+
+    title_lines = max(1, (len(titulo) + title_cpl - 1) // title_cpl)
+    desc_lines = 0
+    if texto and texto != titulo:
+        desc_lines = max(1, (len(texto) + desc_cpl - 1) // desc_cpl)
+
+    required = (title_lines * title_lh +
+                title_desc_gap +
+                desc_lines * desc_lh +
+                margins)
+    # Acotar dentro de los límites
+    return max(_VISUAL_CARD_MIN_HEIGHT, min(required, _VISUAL_CARD_MAX_HEIGHT))
+
+
+def _calculate_row_heights(items: list[dict], cols: int = 2) -> list[int]:
+    """
+    Calcula alturas RESPONSIVE para cada FILA del grid de 2 columnas.
+    
+    Estrategia:
+    1. Calcula la altura MÍNIMA REQUERIDA para que el texto de cada item
+       quepa sin desbordarse (basado en longitud de texto, fuente y ancho).
+    2. La altura de cada fila = el máximo entre la altura requerida y la
+       altura proporcional (distribución justa del espacio sobrante).
+    3. normAutofit se encarga de reducir la fuente si aún falta espacio.
+    """
+    n = len(items)
+    if n == 0:
+        return []
+
+    num_rows = (n + cols - 1) // cols
+    total_gaps = (num_rows - 1) * _VISUAL_CARD_GAP
+    available = _VISUAL_CONTENT_HEIGHT - total_gaps
+
+    row_required = []   # altura mínima que necesita cada fila para su contenido
+    row_weights   = []  # peso proporcional para distribuir el sobrante
+
+    for r in range(num_rows):
+        start = r * cols
+        end   = min(start + cols, n)
+        max_req = _VISUAL_CARD_MIN_HEIGHT
+        max_w   = 1
+        for i in range(start, end):
+            item = items[i]
+            titulo = (item.get('titulo') or '').strip()
+            texto  = (item.get('texto')  or '').strip()
+            # Altura requerida para este item
+            req = _estimate_item_required_height(titulo, texto)
+            if req > max_req:
+                max_req = req
+            # Peso para distribución proporcional
+            w = max(1, len(titulo) * 2 + len(texto) * 0.35)
+            if w > max_w:
+                max_w = w
+        row_required.append(max_req)
+        row_weights.append(max_w)
+
+    total_weight = sum(row_weights)
+
+    # Altura final = max(requerida, proporcional), acotada a max
+    row_heights = []
+    for i in range(num_rows):
+        prop_h = int(available * (row_weights[i] / total_weight)) if total_weight else _VISUAL_CARD_MIN_HEIGHT
+        prop_h = max(_VISUAL_CARD_MIN_HEIGHT, min(prop_h, _VISUAL_CARD_MAX_HEIGHT))
+        h = max(row_required[i], prop_h)
+        h = min(h, _VISUAL_CARD_MAX_HEIGHT)
+        row_heights.append(h)
+
+    # Redistribuir espacio sobrante entre filas que no alcanzaron el máximo
+    total_used = sum(row_heights)
+    if total_used < available:
+        surplus = available - total_used
+        non_max = [i for i, h in enumerate(row_heights) if h < _VISUAL_CARD_MAX_HEIGHT]
+        if non_max:
+            nm_weight = sum(row_weights[i] for i in non_max)
+            if nm_weight > 0:
+                for i in non_max:
+                    extra = int(surplus * (row_weights[i] / nm_weight))
+                    row_heights[i] = min(row_heights[i] + extra, _VISUAL_CARD_MAX_HEIGHT)
+
+    return row_heights
+
+
+def _make_overflow_xml_visual(template_xml: bytes, torre: str, items: list[dict]) -> bytes:
+    """
+    Slide de overflow con TARJETAS VISUALES en GRID DE 2 COLUMNAS.
+    Cada ítem se muestra en una tarjeta con degradado horizontal de 3 colores
+    (azul → teal → verde), bordes redondeados, tipografía clara y compacta.
+    - Las tarjetas se organizan en 2 columnas × 3 filas.
+    - La altura de cada fila es proporcional al contenido más largo de esa fila.
+    - normAutofit evita que el texto se desborde.
+    """
+    root    = etree.fromstring(template_xml)
+    sp_tree = root.find(f'.//{{{P}}}spTree')
+    if sp_tree is None:
+        return template_xml
+
+    # ── Limpiar spTree ────────────────────────────────────────────────────────
+    _STRUCTURAL = {f'{{{P}}}nvGrpSpPr', f'{{{P}}}grpSpPr'}
+    for child in list(sp_tree):
+        tag = child.tag
+        if tag in _STRUCTURAL:
+            continue
+        if tag == f'{{{P}}}sp':
+            if _sp_text(child):
+                sp_tree.remove(child)
+        elif tag == f'{{{P}}}grpSp':
+            if any(_sp_text(s) for s in child.iter(f'{{{P}}}sp')):
+                sp_tree.remove(child)
+
+    # ── Título ────────────────────────────────────────────────────────────────
+    _, title_body = _add_sp(sp_tree, 200, 'ov_title',
+                            x=457_200, y=200_000,
+                            cx=8_229_600, cy=750_000)
+    _add_para(title_body,
+              f'Alcance Técnico del Servicio — {torre}',
+              sz=2400, bold=True, color_hex='1A5C38')
+
+    # ── Separador visual ──────────────────────────────────────────────────────
+    sep = etree.SubElement(sp_tree, f'{{{P}}}sp')
+    sep_nvSpPr = etree.SubElement(sep, f'{{{P}}}nvSpPr')
+    sep_cNvPr  = etree.SubElement(sep_nvSpPr, f'{{{P}}}cNvPr')
+    sep_cNvPr.attrib['id']   = '201'
+    sep_cNvPr.attrib['name'] = 'ov_sep'
+    etree.SubElement(sep_nvSpPr, f'{{{P}}}cNvSpPr')
+    etree.SubElement(sep_nvSpPr, f'{{{P}}}nvPr')
+    sep_spPr   = etree.SubElement(sep, f'{{{P}}}spPr')
+    sep_xfrm   = etree.SubElement(sep_spPr, f'{{{A}}}xfrm')
+    sep_off    = etree.SubElement(sep_xfrm, f'{{{A}}}off')
+    sep_off.attrib['x'] = '457200'
+    sep_off.attrib['y'] = '950000'
+    sep_ext    = etree.SubElement(sep_xfrm, f'{{{A}}}ext')
+    sep_ext.attrib['cx'] = '8229600'
+    sep_ext.attrib['cy'] = '50000'
+    sep_prstG  = etree.SubElement(sep_spPr, f'{{{A}}}prstGeom')
+    sep_prstG.attrib['prst'] = 'rect'
+    etree.SubElement(sep_prstG, f'{{{A}}}avLst')
+    sep_sf  = etree.SubElement(sep_spPr, f'{{{A}}}solidFill')
+    sep_clr = etree.SubElement(sep_sf,  f'{{{A}}}srgbClr')
+    sep_clr.attrib['val'] = '1A5C38'
+
+    # ── Calcular alturas de filas ─────────────────────────────────────────────
+    row_heights = _calculate_row_heights(items, cols=_VISUAL_GRID_COLS)
+    cols       = _VISUAL_GRID_COLS
+    card_w     = _VISUAL_CARD_WIDTH
+    col_gap    = _VISUAL_COLUMN_GAP
+    card_x     = _VISUAL_LEFT_MARGIN
+    card_x2    = card_x + card_w + col_gap  # posición X de la 2ª columna
+    row_gap    = _VISUAL_CARD_GAP
+
+    # ── Grid de tarjetas (2 columnas × N filas) ───────────────────────────────
+    y_cursor = _VISUAL_START_Y
+    card_idx = 0
+    num_rows = (len(items) + cols - 1) // cols
+
+    for row in range(num_rows):
+        row_h = row_heights[row] if row < len(row_heights) else _VISUAL_CARD_MIN_HEIGHT
+        start = row * cols
+        end   = min(start + cols, len(items))
+
+        for col in range(start, end):
+            item = items[col]
+            titulo = (item.get('titulo') or '').strip()
+            texto  = (item.get('texto')  or '').strip()
+            if not titulo:
+                continue
+
+            # Alternar columna: 0 = izquierda, 1 = derecha
+            col_pos = col - start
+            x_pos = card_x if col_pos == 0 else card_x2
+            card_id = 300 + card_idx
+            card_idx += 1
+
+            card = _add_card_shape(
+                sp_tree, card_id, f'card_{card_idx}',
+                x=x_pos, y=y_cursor,
+                cx=card_w, cy=row_h,
+                grad_stops=_VISUAL_GRADIENT_STOPS,
+                grad_angle=_VISUAL_GRADIENT_ANGLE,
+            )
+
+            txBody = card.find(f'{{{P}}}txBody')
+            if txBody is not None:
+                _add_card_para(txBody, titulo,
+                               sz=_VISUAL_TITLE_FONT, bold=True,
+                               color_hex=_VISUAL_TEXT_COLOR,
+                               is_title=True)
+                if texto and texto != titulo:
+                    _add_card_para(txBody, texto,
+                                   sz=_VISUAL_DESC_FONT, bold=False,
+                                   color_hex=_VISUAL_DESC_COLOR)
+
+        y_cursor += row_h + row_gap
+
+    return etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
@@ -594,10 +936,13 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
 
         print(f'[ALCANCES] Torre "{torre}" — {len(items)} items, IA={usar_ia}')
 
-        # Un slide por cada chunk de ITEMS_PER_OVERFLOW items (mismo formato para todos)
+        # Elegir formato según si la IA está activada
+        render_fn = _make_overflow_xml_visual if usar_ia else _make_overflow_xml
+
+        # Un slide por cada chunk de ITEMS_PER_OVERFLOW items
         for i in range(0, len(items), ITEMS_PER_OVERFLOW):
             chunk   = items[i: i + ITEMS_PER_OVERFLOW]
-            ov_xml  = _make_overflow_xml(template_xml, torre, chunk)
+            ov_xml  = render_fn(template_xml, torre, chunk)
             if first_slide:
                 files_dict[target_path] = ov_xml
                 prev_path   = target_path

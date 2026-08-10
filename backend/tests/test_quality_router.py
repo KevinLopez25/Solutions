@@ -1,4 +1,5 @@
 import re
+from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -66,14 +67,20 @@ def test_parse_coverage_from_output_totals():
 
 
 def test_run_tests_endpoint_returns_json_shape():
-    app = _build_app()
-    client = _build_client(app)
+    mock_result = MagicMock()
+    mock_result.stdout = SAMPLE_COVERAGE
+    mock_result.stderr = ""
+    mock_result.returncode = 0
 
-    response = client.post("/api/v1/quality/run-tests")
+    with patch("api.v1.quality.router.subprocess.run", return_value=mock_result):
+        app = _build_app()
+        client = _build_client(app)
 
-    assert response.status_code == 200
-    body = response.json()
-    assert "success" in body
-    assert "tests_summary" in body
-    assert "coverage" in body
-    assert isinstance(body["coverage"], list)
+        response = client.post("/api/v1/quality/run-tests")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert "success" in body
+        assert "tests_summary" in body
+        assert "coverage" in body
+        assert isinstance(body["coverage"], list)

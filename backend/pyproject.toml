@@ -11,4 +11,4 @@ exclude = ["__pycache__", "build", "dist", "frontend", "node_modules", ".venv"]
 minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--strict-markers --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml"
+addopts = "--strict-markers"

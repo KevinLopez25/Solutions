@@ -34,6 +34,8 @@ export default defineConfig({
         'src/features/propuesta/hooks/useExcelParser.js',
         'src/features/propuesta/hooks/usePropuesta.js',
         'src/features/catalogo/components/CatalogoTable.jsx',
+        'src/features/propuesta/services/propuestaService.js',
+        'src/features/ai/services/aiService.js',
       ],
       thresholds: {
         statements: 85,

@@ -1,11 +1,11 @@
 [run]
+source = api,core,domain,infrastructure
 omit =
-    */tests/*
-    inspect_slide_titles.py
-    inspect_slide_titles2.py
+    infrastructure/generators/*
+    tests/*
+    main.py
     server.py
-    run_tests.bat
-    show_coverage.py
-    infrastructure/generators/fda_perfiles.py
-    infrastructure/generators/consideraciones.py
-    infrastructure/generators/cronograma_image.py
+    __init__.py
+    */__init__.py
+    */schemas.py
+    domain/ai/service.py

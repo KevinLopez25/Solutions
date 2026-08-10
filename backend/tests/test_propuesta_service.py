@@ -98,10 +98,6 @@ def test_generar_propuesta_enriches_missing_catalog_items_with_ai(monkeypatch, t
     })
     monkeypatch.setattr(service, "generate_as_is_to_be", lambda excel_data, desc: ("AS-IS", "TO-BE"))
     monkeypatch.setattr(service, "generate_roadmap_phases", lambda excel_data: [{"name": "Fase 1"}])
-    monkeypatch.setattr(service, "generate_profile_description", lambda perfil, torre=None: "Descripción de perfil generada")
-    monkeypatch.setattr(service, "generate_consideration_description", lambda texto, torre=None: "Descripción de consideración generada")
-    monkeypatch.setattr(service, "generate_entregable_description", lambda item, torre=None: "Descripción de entregable generada")
-    monkeypatch.setattr(service, "generate_fuera_alcance_description", lambda item, torre=None: "Descripción de fuera de alcance generada")
 
     def fake_create_torre(db, nombre):
         return SimpleNamespace(id=1, nombre=nombre, nombre_norm=nombre.upper())
@@ -170,10 +166,6 @@ def test_generar_propuesta_uses_fallback_when_ai_description_fails(monkeypatch, 
     monkeypatch.setattr(service, "build_catalog_data", lambda db: {"fda_db": {}, "perf_db": {}, "consideraciones_db": {}, "entregables_db": []})
     monkeypatch.setattr(service, "generate_as_is_to_be", lambda excel_data, desc: ("AS-IS", "TO-BE"))
     monkeypatch.setattr(service, "generate_roadmap_phases", lambda excel_data: [{"name": "Fase 1"}])
-    monkeypatch.setattr(service, "generate_profile_description", lambda perfil, torre=None: (_ for _ in ()).throw(RuntimeError("groq down")))
-    monkeypatch.setattr(service, "generate_consideration_description", lambda texto, torre=None: (_ for _ in ()).throw(RuntimeError("groq down")))
-    monkeypatch.setattr(service, "generate_entregable_description", lambda item, torre=None: (_ for _ in ()).throw(RuntimeError("groq down")))
-    monkeypatch.setattr(service, "generate_fuera_alcance_description", lambda item, torre=None: (_ for _ in ()).throw(RuntimeError("groq down")))
 
     def capture_create_torre(db, nombre):
         created.append(("torre", nombre))
@@ -225,11 +217,11 @@ def test_generar_propuesta_uses_fallback_when_ai_description_fails(monkeypatch, 
 
     assert response.filename == "Propuesta_Periferia_CORP.pptx"
     assert base64.b64decode(response.content_b64) == b"pptx-ok"
-    assert captured["catalog_data"]["perf_db"]["A"][0]["desc"] == "No se encontró este perfil en la base de datos"
+    assert captured["catalog_data"]["perf_db"]["A"][0]["desc"] == "Solicita al asistente IA que complete esta descripción"
     assert captured["catalog_data"]["consideraciones_db"]["GENERALES"] == ["Consideración nueva"]
     assert captured["catalog_data"]["entregables_db"][0]["items"] == ["Entregable nuevo"]
     assert captured["catalog_data"]["fda_db"][""] == ["Fuera de alcance nuevo"]
-    assert created == []
+    assert len(created) == 4
 
 
 def test_get_filiales_route(client):

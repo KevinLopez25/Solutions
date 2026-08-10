@@ -169,12 +169,13 @@ def _generate_catalog_description(entity_name: str, value: str, prompt: str, ver
 
 def generate_profile_description(perfil: str, torre: str | None = None, db_session=None) -> str:
     prompt = (
-        "Genera una descripcion profesional y completa para el siguiente perfil/rol. "
-        "La descripcion debe incluir las responsabilidades principales, valor que aporta al proyecto "
-        "y su enfoque dentro del equipo. "
+        "Genera una descripcion profesional CORTA y CONCISA para el siguiente perfil/rol. "
+        "La descripcion debe resumir las responsabilidades principales y el valor que aporta al proyecto "
+        "en muy pocas lineas. "
         "No repitas el nombre del perfil porque ya aparece como titulo. "
-        "Usa entre 20 y 40 palabras, en un parrafo unico y claro. "
-        "Debe sonar natural, profesional y apto para una propuesta comercial."
+        "Usa maximo 25 palabras, en un parrafo unico y claro. "
+        "Debe sonar natural, profesional y apto para una propuesta comercial. "
+        "IMPORTANTE: Se breve, evita detalles muy especificos o extensos."
     )
     if torre:
         prompt += f" Considera que pertenece a la torre '{torre}' y enfocate en tareas clave y valor del perfil."
