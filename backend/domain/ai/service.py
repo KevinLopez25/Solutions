@@ -212,119 +212,40 @@ def generate_fuera_alcance_description(item: str, torre: str | None = None) -> s
 
 
 def replace_logo_in_pptx(pptx_bytes: bytes, logo_bytes: bytes, logo_mime: str) -> bytes:
-    """Replace the client logo in slide 1.
+    """Reemplaza el logo del cliente (logo Mapfre) en TODAS las diapositivas.
 
-    Strategy:
-    1. Find 'Rectángulo redondeado' shape to get the logo bounding box.
-    2. Find p:pic elements whose center is inside that box (skip background).
-       → Replace the image file they reference in the ZIP (GROUP / CORP).
-    3. Fallback: if no p:pic found, add blipFill to the rounded rectangle (CBIT).
+    Estrategia por diapositiva (se conserva el tamaño del logo, ya que solo se
+    sobrescribe la imagen referenciada sin tocar las coordenadas xfrm del p:pic):
+    1. Buscar la forma 'Rectángulo redondeado' para obtener el área del logo.
+    2. Buscar p:pic cuyo centro quede dentro de esa área (ignora fondos).
+       → Reemplaza el archivo de imagen que referencia en el ZIP.
+    3. Fallback: si no hay p:pic, aplica blipFill a la forma 'Rectángulo redondeado'.
     """
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as zin:
         files = {name: zin.read(name) for name in zin.namelist()}
 
-    slide1_path = 'ppt/slides/slide1.xml'
-    rels_path   = 'ppt/slides/_rels/slide1.xml.rels'
+    slide_paths = sorted(
+        name for name in files
+        if re.match(r'ppt/slides/slide\d+\.xml$', name)
+    )
+    if not slide_paths:
+        raise ValueError('No se encontraron diapositivas (slideN.xml) en el PPTX.')
 
-    if slide1_path not in files:
-        raise ValueError('No se encontró slide1.xml en el PPTX.')
-
-    root     = etree.fromstring(files[slide1_path])
-    rels_raw = files.get(rels_path)
-    if not rels_raw:
-        raise ValueError('No se encontró el archivo de relaciones de slide1.')
-    rels_root = etree.fromstring(rels_raw)
-    rels = {r.get('Id'): r.get('Target', '')
-            for r in rels_root.findall(f'{{{_NS_RELS}}}Relationship')}
-
-    # ── 1. Get bounding box of the rounded rectangle ──────────────────────────
-    rect_bounds = None
-    for sp in root.iter(f'{{{_NS_P}}}sp'):
-        nvSpPr = sp.find(f'{{{_NS_P}}}nvSpPr')
-        if nvSpPr is None:
+    for slide_path in slide_paths:
+        rels_path = f'ppt/slides/_rels/{posixpath.basename(slide_path)}.rels'
+        root      = etree.fromstring(files[slide_path])
+        rels_raw  = files.get(rels_path)
+        if rels_raw is None:
             continue
-        cNvPr = nvSpPr.find(f'{{{_NS_P}}}cNvPr')
-        if cNvPr is None or not (cNvPr.get('name') or '').startswith(_LOGO_SHAPE_PREFIX):
-            continue
-        spPr = sp.find(f'{{{_NS_P}}}spPr')
-        if spPr is None:
-            continue
-        xfrm = spPr.find(f'{{{_NS_A}}}xfrm')
-        if xfrm is None:
-            continue
-        off   = xfrm.find(f'{{{_NS_A}}}off')
-        ext_e = xfrm.find(f'{{{_NS_A}}}ext')
-        if off is None or ext_e is None:
-            continue
-        x1 = int(off.get('x', 0))
-        y1 = int(off.get('y', 0))
-        rect_bounds = (x1, y1, x1 + int(ext_e.get('cx', 0)), y1 + int(ext_e.get('cy', 0)))
-        break
+        rels_root = etree.fromstring(rels_raw)
+        rels = {r.get('Id'): r.get('Target', '')
+                for r in rels_root.findall(f'{{{_NS_RELS}}}Relationship')}
 
-    if rect_bounds is None:
-        raise ValueError(f"No se encontró '{_LOGO_SHAPE_PREFIX}' en la primera diapositiva.")
-
-    rx1, ry1, rx2, ry2 = rect_bounds
-
-    # ── 2. Find p:pic elements inside the logo area ───────────────────────────
-    logo_pics = []
-    for pic in root.iter(f'{{{_NS_P}}}pic'):
-        blip = pic.find(f'.//{{{_NS_A}}}blip')
-        xfrm = pic.find(f'.//{{{_NS_A}}}xfrm')
-        if blip is None or xfrm is None:
-            continue
-        off   = xfrm.find(f'{{{_NS_A}}}off')
-        ext_e = xfrm.find(f'{{{_NS_A}}}ext')
-        if off is None or ext_e is None:
-            continue
-        x  = int(off.get('x', 0))
-        y  = int(off.get('y', 0))
-        cx = int(ext_e.get('cx', 0))
-        cy = int(ext_e.get('cy', 0))
-        if x < 0 or y < 0:
-            continue  # skip full-slide background
-        mid_x = x + cx // 2
-        mid_y = y + cy // 2
-        if rx1 <= mid_x <= rx2 and ry1 <= mid_y <= ry2:
-            rid = blip.get(f'{{{_NS_R}}}embed')
-            if rid:
-                logo_pics.append(rid)
-
-    if logo_pics:
-        # ── 2a. Replace the image file the p:pic references ──────────────────
-        rid    = logo_pics[0]
-        target = rels.get(rid, '')
-        if not target:
-            raise ValueError(f'Relación no encontrada para rId={rid}.')
-        media_path = posixpath.normpath('ppt/slides/' + target)
-        if media_path not in files:
-            raise ValueError(f'Archivo de media no encontrado: {media_path}')
-        files[media_path] = logo_bytes
-
-    else:
-        # ── 2b. Fallback: blipFill on the rounded rectangle ──────────────────
-        ext = _MIME_TO_EXT.get(logo_mime, 'png')
-        media_name = f'logo_custom.{ext}'
-        media_path = f'ppt/media/{media_name}'
-        c = 1
-        while media_path in files:
-            media_name = f'logo_custom_{c}.{ext}'
-            media_path = f'ppt/media/{media_name}'
-            c += 1
-        files[media_path] = logo_bytes
-
-        existing_ids = {r.get('Id') for r in rels_root.findall(f'{{{_NS_RELS}}}Relationship')}
-        new_rid = 'rIdLogo'
-        c = 1
-        while new_rid in existing_ids:
-            new_rid = f'rIdLogo{c}'
-            c += 1
-        new_rel = etree.SubElement(rels_root, f'{{{_NS_RELS}}}Relationship')
-        new_rel.set('Id', new_rid)
-        new_rel.set('Type', _REL_IMAGE_TYPE)
-        new_rel.set('Target', f'../media/{media_name}')
-        files[rels_path] = etree.tostring(rels_root, xml_declaration=True, encoding='UTF-8', standalone=True)
-
+        # ── 1. Bounding box de la forma 'Rectángulo redondeado' (banner horizontal)
+        #    Solo se considera contenedor de logo si es horizontal (cx >= cy).
+        #    Los contenedores de fotos de perfil son verticales y se descartan para
+        #    evitar reemplazar las fotos por el logo.
+        rect_bounds = None
         for sp in root.iter(f'{{{_NS_P}}}sp'):
             nvSpPr = sp.find(f'{{{_NS_P}}}nvSpPr')
             if nvSpPr is None:
@@ -335,23 +256,108 @@ def replace_logo_in_pptx(pptx_bytes: bytes, logo_bytes: bytes, logo_mime: str) -
             spPr = sp.find(f'{{{_NS_P}}}spPr')
             if spPr is None:
                 continue
-            for tag in _FILL_TAGS:
-                for el in spPr.findall(f'{{{_NS_A}}}{tag}'):
-                    spPr.remove(el)
-            blipFill = etree.Element(f'{{{_NS_A}}}blipFill')
-            blip_el  = etree.SubElement(blipFill, f'{{{_NS_A}}}blip')
-            blip_el.set(f'{{{_NS_R}}}embed', new_rid)
-            stretch = etree.SubElement(blipFill, f'{{{_NS_A}}}stretch')
-            etree.SubElement(stretch, f'{{{_NS_A}}}fillRect')
             xfrm = spPr.find(f'{{{_NS_A}}}xfrm')
-            if xfrm is not None:
-                spPr.insert(list(spPr).index(xfrm) + 1, blipFill)
-            else:
-                spPr.append(blipFill)
+            if xfrm is None:
+                continue
+            off, ext_e = xfrm.find(f'{{{_NS_A}}}off'), xfrm.find(f'{{{_NS_A}}}ext')
+            if off is None or ext_e is None:
+                continue
+            x1 = int(off.get('x', 0))
+            y1 = int(off.get('y', 0))
+            box_cx = int(ext_e.get('cx', 0))
+            box_cy = int(ext_e.get('cy', 0))
+            if box_cx < box_cy:
+                continue  # contenedor vertical (fotos de perfil), se descarta
+            rect_bounds = (x1, y1, x1 + box_cx, y1 + box_cy)
             break
-        files[slide1_path] = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
 
-    # ── 3. Rebuild PPTX ──────────────────────────────────────────────────────
+        if rect_bounds is None:
+            continue  # esta diapositiva no tiene forma de logo
+
+        rx1, ry1, rx2, ry2 = rect_bounds
+
+        # ── 2. p:pic dentro del área del logo ────────────────────────────────
+        logo_pics = []
+        for pic in root.iter(f'{{{_NS_P}}}pic'):
+            blip = pic.find(f'.//{{{_NS_A}}}blip')
+            xfrm = pic.find(f'.//{{{_NS_A}}}xfrm')
+            if blip is None or xfrm is None:
+                continue
+            off, ext_e = xfrm.find(f'{{{_NS_A}}}off'), xfrm.find(f'{{{_NS_A}}}ext')
+            if off is None or ext_e is None:
+                continue
+            x, y = int(off.get('x', 0)), int(off.get('y', 0))
+            cx, cy = int(ext_e.get('cx', 0)), int(ext_e.get('cy', 0))
+            if x < 0 or y < 0:
+                continue  # fondo de pantalla completa
+            mid_x, mid_y = x + cx // 2, y + cy // 2
+            if rx1 <= mid_x <= rx2 and ry1 <= mid_y <= ry2:
+                rid = blip.get(f'{{{_NS_R}}}embed')
+                if rid:
+                    logo_pics.append(rid)
+
+        if logo_pics:
+            # ── 2a. Reemplaza TODOS los pics de logo (conserva el tamaño) ───
+            for rid in logo_pics:
+                target = rels.get(rid, '')
+                if not target:
+                    continue
+                media_path = posixpath.normpath('ppt/slides/' + target)
+                if media_path in files:
+                    files[media_path] = logo_bytes
+        else:
+            # ── 2b. Fallback: blipFill en la forma 'Rectángulo redondeado' ───
+            slide_tag = posixpath.basename(slide_path).replace('.xml', '')
+            name_key = '' if slide_tag == 'slide1' else f'_{slide_tag}'
+            ext = _MIME_TO_EXT.get(logo_mime, 'png')
+            media_name = f'logo_custom{name_key}.{ext}'
+            media_path = f'ppt/media/{media_name}'
+            c = 1
+            while media_path in files:
+                media_name = f'logo_custom{name_key}_{c}.{ext}'
+                media_path = f'ppt/media/{media_name}'
+                c += 1
+            files[media_path] = logo_bytes
+
+            existing_ids = {r.get('Id') for r in rels_root.findall(f'{{{_NS_RELS}}}Relationship')}
+            new_rid = 'rIdLogo'
+            c = 1
+            while new_rid in existing_ids:
+                new_rid = f'rIdLogo{c}'
+                c += 1
+            new_rel = etree.SubElement(rels_root, f'{{{_NS_RELS}}}Relationship')
+            new_rel.set('Id', new_rid)
+            new_rel.set('Type', _REL_IMAGE_TYPE)
+            new_rel.set('Target', f'../media/{media_name}')
+            files[rels_path] = etree.tostring(rels_root, xml_declaration=True, encoding='UTF-8', standalone=True)
+
+            for sp in root.iter(f'{{{_NS_P}}}sp'):
+                nvSpPr = sp.find(f'{{{_NS_P}}}nvSpPr')
+                if nvSpPr is None:
+                    continue
+                cNvPr = nvSpPr.find(f'{{{_NS_P}}}cNvPr')
+                if cNvPr is None or not (cNvPr.get('name') or '').startswith(_LOGO_SHAPE_PREFIX):
+                    continue
+                spPr = sp.find(f'{{{_NS_P}}}spPr')
+                if spPr is None:
+                    continue
+                for tag in _FILL_TAGS:
+                    for el in spPr.findall(f'{{{_NS_A}}}{tag}'):
+                        spPr.remove(el)
+                blipFill = etree.Element(f'{{{_NS_A}}}blipFill')
+                blip_el  = etree.SubElement(blipFill, f'{{{_NS_A}}}blip')
+                blip_el.set(f'{{{_NS_R}}}embed', new_rid)
+                stretch = etree.SubElement(blipFill, f'{{{_NS_A}}}stretch')
+                etree.SubElement(stretch, f'{{{_NS_A}}}fillRect')
+                xfrm = spPr.find(f'{{{_NS_A}}}xfrm')
+                if xfrm is not None:
+                    spPr.insert(list(spPr).index(xfrm) + 1, blipFill)
+                else:
+                    spPr.append(blipFill)
+                break
+            files[slide_path] = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+
+    # ── 3. Reconstruir PPTX ──────────────────────────────────────────────────
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zout:
         for name, data in files.items():
