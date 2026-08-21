@@ -33,6 +33,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     incluirQa, setIncluirQa,
     asIsEnabled, setAsIsEnabled,
     asIsDescription, setAsIsDescription,
+    horasSemanales, setHorasSemanales,
     loading, error,
     generate,
     downloadProposal,
@@ -530,6 +531,20 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                 <div className="sr">
                   <span className="sr-l"><span>⏱️</span>Total horas</span>
                   <span className="stag b">{totalHrs > 0 ? `${totalHrs} hrs` : 'N/A'}</span>
+                </div>
+                <div className="sr" style={{ alignItems: 'center', gap: 12 }}>
+                  <label className="sr-l" htmlFor="proposal-weekly-hours">
+                    <span>🗓️</span>Horas laborables por semana
+                  </label>
+                  <input
+                    id="proposal-weekly-hours"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={horasSemanales}
+                    onChange={e => setHorasSemanales(e.target.value)}
+                    style={{ width: 88, padding: '7px 9px' }}
+                  />
                 </div>
                 <div className="sr">
                   <span className="sr-l"><span>👤</span>Perfiles</span>

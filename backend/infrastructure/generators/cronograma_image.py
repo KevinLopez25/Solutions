@@ -11,10 +11,11 @@ Genera PNG del cronograma con layout 100% dinámico:
 import io
 import math
 import datetime
+import os
 from PIL import Image, ImageDraw, ImageFont
 
 # ── Negocio ───────────────────────────────────────────────────────────────────
-HORAS_SEMANALES    = 43
+HORAS_SEMANALES_DEFAULT = 42
 SEMANAS_POR_MES    = 4
 SEMANAS_POR_SPRINT = 2
 
@@ -47,9 +48,17 @@ C_BG        = (255, 255, 255)
 
 # ── Fuentes ───────────────────────────────────────────────────────────────────
 _REG  = ["/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+         os.path.join(os.environ.get("WINDIR", r"C:\Windows"),
+                      "Fonts", "arial.ttf"),
+         os.path.join(os.environ.get("WINDIR", r"C:\Windows"),
+                      "Fonts", "calibri.ttf")]
 _BOLD = ["/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+         os.path.join(os.environ.get("WINDIR", r"C:\Windows"),
+                      "Fonts", "arialbd.ttf"),
+         os.path.join(os.environ.get("WINDIR", r"C:\Windows"),
+                      "Fonts", "calibrib.ttf")]
 
 def _fnt(paths, size):
     size = max(6, int(size))
@@ -191,6 +200,7 @@ def generate_cronograma_image(config: dict) -> bytes:
     id_proy     = config.get("id_proyecto", "")
     fecha_str   = config.get("fecha",
                              datetime.date.today().strftime("%d de %B de %Y"))
+    horas_semanales = _horas_semanales(config.get("horas_semanales"))
     if not actividades:
         raise ValueError("No hay actividades")
 
@@ -199,7 +209,7 @@ def generate_cronograma_image(config: dict) -> bytes:
     total_horas = 0
     for act in actividades:
         p = max(1, int(act.get("personas", 1)))
-        act["semanas"] = max(1, math.ceil(act["horas"] / p / HORAS_SEMANALES))
+        act["semanas"] = max(1, math.ceil(act["horas"] / horas_semanales / p))
         total_horas += act["horas"]
 
     total_semanas  = max(a["semanas"] for a in actividades)
@@ -207,9 +217,18 @@ def generate_cronograma_image(config: dict) -> bytes:
 
     meta = dict(nombre_proyecto=nombre_proy, torre=torre_proy,
                 id_proyecto=id_proy, fecha=fecha_str,
-                total_horas=total_horas, duracion_meses=duracion_meses)
+                total_horas=total_horas, duracion_meses=duracion_meses,
+                horas_semanales=horas_semanales)
 
     return _render(actividades, roles, total_semanas, meta)
+
+
+def _horas_semanales(value):
+    try:
+        horas = float(value)
+    except (TypeError, ValueError):
+        return HORAS_SEMANALES_DEFAULT
+    return horas if horas > 0 else HORAS_SEMANALES_DEFAULT
 
 
 def _norm_roles(raw):

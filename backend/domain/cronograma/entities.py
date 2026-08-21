@@ -17,6 +17,7 @@ class ActividadCronograma(BaseModel):
 class GenerarCronogramaRequest(BaseModel):
     proyecto: str = ""
     cliente: str = ""
+    horas_semanales: float = 42
     roles: list[RolCronograma] = []
     actividades: list[ActividadCronograma] = []
 

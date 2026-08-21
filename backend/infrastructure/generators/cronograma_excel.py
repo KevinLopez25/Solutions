@@ -20,7 +20,7 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 # ── Negocio ───────────────────────────────────────────────────────────────────
-HORAS_SEMANALES    = 43
+HORAS_SEMANALES_DEFAULT = 42
 SEMANAS_POR_MES    = 4
 SEMANAS_POR_SPRINT = 2
 
@@ -64,6 +64,7 @@ def generate_cronograma(config: dict) -> bytes:
     torre_proy   = config.get("torre", "")
     id_proy      = config.get("id_proyecto", "")
     fecha_str    = config.get("fecha", datetime.date.today().strftime("%d de %B de %Y"))
+    horas_semanales = _horas_semanales(config.get("horas_semanales"))
 
     if not actividades:
         raise ValueError("No hay actividades")
@@ -73,11 +74,12 @@ def generate_cronograma(config: dict) -> bytes:
     total_horas = 0
     for act in actividades:
         p = max(1, int(act.get("personas", 1)))
-        act["semanas"] = max(1, math.ceil(act["horas"] / p / HORAS_SEMANALES))
+        act["semanas"] = max(1, math.ceil(act["horas"] / horas_semanales / p))
         total_horas += act["horas"]
 
     total_semanas  = max(a["semanas"] for a in actividades)
     duracion_meses = round(total_semanas / SEMANAS_POR_MES, 1)
+    pill_extra_cols = _pill_extra_columns(roles, total_semanas)
 
     n_roles     = len(roles)
     filas_pills = 1 if n_roles else 0  # siempre una sola fila de pills
@@ -94,6 +96,7 @@ def generate_cronograma(config: dict) -> bytes:
         "fecha":           fecha_str,
         "total_horas":     total_horas,
         "duracion_meses":  duracion_meses,
+        "horas_semanales": horas_semanales,
         "filas_pills":     filas_pills,
         "ROW_HDR_START":   ROW_HDR_START,
     }
@@ -102,17 +105,27 @@ def generate_cronograma(config: dict) -> bytes:
     ws1 = wb.active
     ws1.title = "Cronograma"
     ws1.sheet_view.showGridLines = False
-    _configurar_dimensiones(ws1, total_semanas, filas_pills, sin_semanas=False)
+    _configurar_dimensiones(ws1, total_semanas, filas_pills,
+                            sin_semanas=False, extra_cols=pill_extra_cols)
 
     ws2 = wb.create_sheet(title="Cronograma sin semanas")
     ws2.sheet_view.showGridLines = False
-    _configurar_dimensiones(ws2, total_semanas, filas_pills, sin_semanas=True)
+    _configurar_dimensiones(ws2, total_semanas, filas_pills,
+                            sin_semanas=True, extra_cols=pill_extra_cols)
 
     buf = io.BytesIO()
     wb.save(buf)
 
     return _inyectar_drawing(buf.getvalue(), actividades, roles,
                              total_semanas, meta)
+
+
+def _horas_semanales(value):
+    try:
+        horas = float(value)
+    except (TypeError, ValueError):
+        return HORAS_SEMANALES_DEFAULT
+    return horas if horas > 0 else HORAS_SEMANALES_DEFAULT
 
 
 def _normalizar_roles(roles_raw):
@@ -134,7 +147,8 @@ def _normalizar_roles(roles_raw):
 
 
 # ── Dimensiones ───────────────────────────────────────────────────────────────
-def _configurar_dimensiones(ws, total_semanas, filas_pills, sin_semanas):
+def _configurar_dimensiones(ws, total_semanas, filas_pills, sin_semanas,
+                            extra_cols=0):
     r = 1
     ws.row_dimensions[r].height = 44   # título
     r += 1
@@ -150,8 +164,27 @@ def _configurar_dimensiones(ws, total_semanas, filas_pills, sin_semanas):
 
     ws.column_dimensions["A"].width = 23
     ws.column_dimensions["B"].width = 6
-    for i in range(total_semanas):
+    for i in range(total_semanas + extra_cols):
         ws.column_dimensions[get_column_letter(i + 3)].width = 6
+
+
+def _pill_widths(roles):
+    """Calcula el ancho de cada pill sin recortar su etiqueta."""
+    widths = []
+    for rol in roles:
+        label = (f"  {rol['perfil']} {rol['seniority']}  "
+                 if rol["seniority"] else f"  {rol['perfil']}  ")
+        widths.append(max(300_000, len(label) * 85_000))
+    return widths
+
+
+def _pill_extra_columns(roles, total_semanas):
+    """Reserva columnas adicionales cuando los perfiles exceden el ancho base."""
+    if not roles:
+        return 0
+    base_w = COL_A_EMU + COL_B_EMU + total_semanas * COL_SEM_EMU
+    required_w = PADDING * 4 + sum(_pill_widths(roles)) + 76_200 * (len(roles) - 1)
+    return max(0, math.ceil((required_w - base_w) / COL_SEM_EMU))
 
 
 # ── Inyección ZIP ─────────────────────────────────────────────────────────────
@@ -242,8 +275,11 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     COL_KO = 1    # col B = kick-off / S0 / Sprint 0
     COL_S1 = 2    # col C en adelante = semanas
 
-    # Ancho total
-    TOTAL_W = COL_A_EMU + COL_B_EMU + total_semanas * COL_SEM_EMU
+    # Ancho total: se amplía para que los perfiles permanezcan en una fila.
+    base_w = COL_A_EMU + COL_B_EMU + total_semanas * COL_SEM_EMU
+    pill_widths = _pill_widths(roles)
+    pill_required_w = PADDING * 4 + sum(pill_widths) + 76_200 * (len(roles) - 1)
+    TOTAL_W = max(base_w, pill_required_w)
 
     # ── 1. TÍTULO ──────────────────────────────────────────────────────────
     subtitulo = (f"Generado el {meta['fecha']}  |  "
@@ -265,27 +301,12 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     BADGE_R      = 133_350
     PILL_PAD_X   = PADDING * 2
 
-    for rol in roles:
+    for rol, pill_w in zip(roles, pill_widths):
         label = (f"  {rol['perfil']} {rol['seniority']}  "
                  if rol["seniority"]
                  else f"  {rol['perfil']}  ")
-        rol["_pill_w"] = max(300_000, len(label) * 85_000)
+        rol["_pill_w"] = pill_w
         rol["_label"]  = label.strip()
-
-    # Garantizar que todos los pills caben en una sola fila (sin wrap)
-    if roles:
-        avail_w    = TOTAL_W - PILL_PAD_X * 2
-        total_gaps = PILL_GAP_H * (len(roles) - 1)
-        total_pw   = sum(r["_pill_w"] for r in roles)
-        if total_pw + total_gaps > avail_w:
-            max_pw = max(300_000, (avail_w - total_gaps) // len(roles))
-            for rol in roles:
-                if rol["_pill_w"] > max_pw:
-                    rol["_pill_w"] = max_pw
-                    max_ch = max(3, max_pw // 85_000 - 2)
-                    lbl = rol["_label"]
-                    if len(lbl) > max_ch:
-                        rol["_label"] = lbl[:max_ch - 1].rstrip() + "…"
 
     x_cursor = PILL_PAD_X
     for i, rol in enumerate(roles):

@@ -84,7 +84,29 @@ function parse(wb, filename) {
   const estimacion = parseEstimacion(wb)
   const perfiles   = parseAnexos(wb)
   const alcances   = parseAlcances(wb, resumen.torres)
-  return { ...resumen, ...estimacion, perfiles, alcances, filename }
+  const personasPorTorre = sumarPersonasPorTorre(perfiles)
+  const torres = resumen.torres.map(torre => ({
+    ...torre,
+    personas: personasPorTorre.get(normalizarTorre(torre.nombre)) || 1,
+  }))
+  return { ...resumen, torres, ...estimacion, perfiles, alcances, filename }
+}
+
+function normalizarTorre(nombre) {
+  return String(nombre || '')
+    .replace(/^torre\s+/i, '')
+    .trim()
+    .toLowerCase()
+}
+
+function sumarPersonasPorTorre(perfiles) {
+  const personas = new Map()
+  for (const perfil of perfiles) {
+    const torre = normalizarTorre(perfil.torre)
+    if (!torre) continue
+    personas.set(torre, (personas.get(torre) || 0) + Math.max(1, Number(perfil.personas) || 1))
+  }
+  return personas
 }
 
 function _rgbEsVerde(hex) {

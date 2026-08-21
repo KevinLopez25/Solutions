@@ -10,6 +10,7 @@ export default function CronogramaForm() {
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading]  = useState(false)
   const [error, setError]      = useState(null)
+  const [horasSemanales, setHorasSemanales] = useState(42)
   const { download }           = useDownload()
 
   function process(file) {
@@ -54,6 +55,7 @@ export default function CronogramaForm() {
         cliente:     parsed.cliente,
         roles:       parsed.roles,
         actividades: parsed.actividades,
+        horas_semanales: Math.max(1, Number(horasSemanales) || 42),
       })
       download(
         result.content_b64,
@@ -77,6 +79,26 @@ export default function CronogramaForm() {
         Sube el Excel de estimación — el cronograma se genera automáticamente
         a partir de las torres y horas del RESUMEN.
       </p>
+
+      <div className="xdetail-card" style={{ marginBottom: '12px' }}>
+        <div className="xdetail-head">
+          <span>Parámetros del cronograma</span>
+        </div>
+        <div className="xdetail-body">
+          <label htmlFor="cronograma-weekly-hours" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+            <span>Horas laborables por semana</span>
+            <input
+              id="cronograma-weekly-hours"
+              type="number"
+              min="1"
+              step="1"
+              value={horasSemanales}
+              onChange={e => setHorasSemanales(e.target.value)}
+              style={{ width: '88px', padding: '7px 9px' }}
+            />
+          </label>
+        </div>
+      </div>
 
       {/* Upload zone */}
       <div
@@ -193,7 +215,20 @@ export default function CronogramaForm() {
 function parseExcel(wb) {
   const resumen = parseResumen(wb)
   const roles   = parseAnexos(wb)
-  return { ...resumen, roles }
+  const personasPorTorre = new Map()
+  for (const rol of roles) {
+    const torre = normalizarTorre(rol.torre)
+    personasPorTorre.set(torre, (personasPorTorre.get(torre) || 0) + rol.personas)
+  }
+  const actividades = resumen.actividades.map(actividad => ({
+    ...actividad,
+    personas: personasPorTorre.get(normalizarTorre(actividad.torre)) || 1,
+  }))
+  return { ...resumen, actividades, roles }
+}
+
+function normalizarTorre(nombre) {
+  return String(nombre || '').replace(/^torre\s+/i, '').trim().toLowerCase()
 }
 
 function parseResumen(wb) {
@@ -210,7 +245,7 @@ function parseResumen(wb) {
     .map(r => ({
       torre:   String(r[1]).replace(/^torre\s*/i, '').trim(),
       horas:   parseNumber(r[2]),
-      personas: 1,
+      personas: Math.max(1, Math.round(parseNumber(r[3]) || 1)),
     }))
     .filter(a => a.torre && a.horas > 0)
 

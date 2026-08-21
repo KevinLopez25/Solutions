@@ -4,10 +4,16 @@ from domain.cronograma import service as cronograma_service
 
 
 def test_generar_cronograma_route_success(client, monkeypatch):
-    monkeypatch.setattr(cronograma_service.cronograma_excel, "generate_cronograma", lambda config: b"xlsx-bytes")
+    captured = {}
+    monkeypatch.setattr(
+        cronograma_service.cronograma_excel,
+        "generate_cronograma",
+        lambda config: captured.update(config) or b"xlsx-bytes",
+    )
     payload = {
         "proyecto": "Mi Proyecto",
-        "actividades": [{"torre": "DevOps", "horas": 8}],
+        "actividades": [{"torre": "DevOps", "horas": 8, "personas": 2}],
+        "horas_semanales": 36,
     }
 
     response = client.post("/api/v1/cronograma/generar", json=payload)
@@ -15,6 +21,7 @@ def test_generar_cronograma_route_success(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()["filename"] == "Cronograma_Mi Proyecto.xlsx"
     assert base64.b64decode(response.json()["content_b64"]) == b"xlsx-bytes"
+    assert captured["horas_semanales"] == 36
 
 
 def test_generar_cronograma_route_error_when_no_actividades(client, monkeypatch):

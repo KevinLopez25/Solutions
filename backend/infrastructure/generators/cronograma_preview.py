@@ -73,6 +73,7 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
         "torre":           config.get("torre", ""),
         "id_proyecto":     config.get("id_proyecto", ""),
         "fecha":           config.get("fecha", ""),
+        "horas_semanales": config.get("horas_semanales", 42),
     }
 
     # ── Generar PNG ───────────────────────────────────────────────────────

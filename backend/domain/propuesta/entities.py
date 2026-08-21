@@ -82,6 +82,7 @@ class GenerarPropuestaRequest(BaseModel):
     incluir_qa: bool = True
     incluir_as_is_to_be: bool = False
     as_is_description: str = ""
+    horas_semanales: float = 42
     actividades: list[Actividad] = []
     roles: list[PerfilInput] = []
     template_name: str | None = None

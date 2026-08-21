@@ -18,6 +18,7 @@ function buildProposalSummary(payload) {
   lines.push(`Proyecto: ${excel.proyecto || 'N/D'}`)
   lines.push(`Archivo origen: ${excel.filename || 'Ninguno'}`)
   lines.push(`QA: ${payload.incluir_qa ? 'Sí' : 'No'}`)
+  lines.push(`Horas laborables por semana: ${payload.horas_semanales || 42}`)
   lines.push(`Secciones con genéricos: ${Object.entries(payload.opciones)
     .filter(([, enabled]) => enabled)
     .map(([key]) => key)
@@ -74,6 +75,7 @@ export function usePropuesta() {
   const [incluirQa, setIncluirQa]          = useState(false)
   const [asIsEnabled, setAsIsEnabled]      = useState(false)
   const [asIsDescription, setAsIsDescription] = useState('')
+  const [horasSemanales, setHorasSemanales] = useState(42)
   const [loading, setLoading]              = useState(false)
   const [error, setError]                  = useState(null)
   const [proposalDraft, setProposalDraft]  = useState(null)
@@ -153,6 +155,7 @@ export function usePropuesta() {
 
       const payload = {
         filial,
+        horas_semanales: Math.max(1, Number(horasSemanales) || 42),
         excel_data:           cleanExcelData,
         torres_seleccionadas: torresSeleccionadas.filter(t => String(t).trim().length > 0),
         opciones:             { ...opciones, usar_ia_alcances: Boolean(iaAlcance) },
@@ -225,6 +228,7 @@ export function usePropuesta() {
     incluirQa, setIncluirQa,
     asIsEnabled, setAsIsEnabled,
     asIsDescription, setAsIsDescription,
+    horasSemanales, setHorasSemanales,
     loading, error,
     proposalDraft,
     generate,

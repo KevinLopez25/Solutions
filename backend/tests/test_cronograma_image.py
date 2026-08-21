@@ -23,7 +23,7 @@ def test_generate_cronograma_image_computes_stats(mock_render, total_semanas, pe
     actividades = [
         {
             'torre': 'Torre ' + str(idx),
-            'horas': total_semanas * people_per_act * 43,
+            'horas': total_semanas * people_per_act * 42,
             'personas': people_per_act,
         }
         for idx in range(3)
@@ -46,6 +46,22 @@ def test_generate_cronograma_image_computes_stats(mock_render, total_semanas, pe
     actividades_arg, roles_arg, semanas_arg, meta_arg = mock_render.call_args.args
     assert semanas_arg == total_semanas
     assert meta_arg['total_horas'] == sum(act['horas'] for act in actividades)
+    assert meta_arg['horas_semanales'] == 42
+
+
+@patch('infrastructure.generators.cronograma_image._render')
+def test_generate_cronograma_image_uses_custom_weekly_hours(mock_render):
+    mock_render.return_value = b'fake-png'
+
+    cron_image.generate_cronograma_image({
+        'actividades': [{'torre': 'A', 'horas': 81, 'personas': 2}],
+        'horas_semanales': 20,
+    })
+
+    actividades_arg, _, semanas_arg, meta_arg = mock_render.call_args.args
+    assert semanas_arg == 3
+    assert actividades_arg[0]['semanas'] == 3
+    assert meta_arg['horas_semanales'] == 20
 
 
 @patch('infrastructure.generators.cronograma_image._render')
