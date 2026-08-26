@@ -25,21 +25,21 @@ SEMANAS_POR_MES    = 4
 SEMANAS_POR_SPRINT = 2
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
-BARRA_COLORES = ["1B8A3E","5B4FCF","24BABA","8B5CF6","10B981","FF6D00","D50000"]
-ROLE_COLORS   = ["5B4FCF","1B8A3E","24BABA","8B5CF6","10B981","FF6D00",
-                 "0891B2","D97706","DC2626","7C3AED","059669","2563EB"]
+VERDES_PRIMARIOS = ["166534", "15803D", "16A34A", "22C55E", "059669", "047857"]
+BARRA_COLORES = VERDES_PRIMARIOS
+ROLE_COLORS   = ["166534", "16A34A", "047857", "15803D", "22C55E", "059669"]
 
-COLOR_GESTION   = "7C3AED"
-COLOR_PREP      = "1B8A3E"
-COLOR_MES       = "4B5563"
-COLOR_SEMANA_BG = "D1D5DB"
-COLOR_SEMANA_TX = "374151"
-COLOR_SPRINT    = "374151"
-COLOR_KO        = "374151"
-COLOR_INFO_BG   = "F3F0FF"
-COLOR_INFO_BOR  = "8B5CF6"
-COLOR_TITULO    = "111827"
-COLOR_SUBTITULO = "6B7280"
+COLOR_GESTION   = "047857"
+COLOR_PREP      = "166534"
+COLOR_MES       = "15803D"
+COLOR_SEMANA_BG = "DCFCE7"
+COLOR_SEMANA_TX = "166534"
+COLOR_SPRINT    = "059669"
+COLOR_KO        = "14532D"
+COLOR_INFO_BG   = "F0FDF4"
+COLOR_INFO_BOR  = "16A34A"
+COLOR_TITULO    = "14532D"
+COLOR_SUBTITULO = "166534"
 
 # ── EMU columnas ──────────────────────────────────────────────────────────────
 PADDING     =   38_100
@@ -445,7 +445,7 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     # ── 9. ACTIVIDADES ─────────────────────────────────────────────────────
     for i, act in enumerate(actividades):
         row   = n_hdr + 1 + i
-        color = BARRA_COLORES[i % len(BARRA_COLORES)]
+        color = BARRA_COLORES[(i + 1) % len(BARRA_COLORES)]
 
         # Etiqueta (col A)
         sid = _shape(root, sid, act["torre"],

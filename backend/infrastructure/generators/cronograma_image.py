@@ -24,25 +24,23 @@ def _hex(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-BARRA_COLORES_RGB = [_hex(c) for c in [
-    "1B8A3E","5B4FCF","24BABA","8B5CF6","10B981","FF6D00","D50000",
-]]
+VERDES_PRIMARIOS = ["166534", "15803D", "16A34A", "22C55E", "059669", "047857"]
+BARRA_COLORES_RGB = [_hex(c) for c in VERDES_PRIMARIOS]
 ROLE_COLORS_RGB = [_hex(c) for c in [
-    "5B4FCF","1B8A3E","24BABA","8B5CF6","10B981","FF6D00",
-    "0891B2","D97706","DC2626","7C3AED","059669","2563EB",
+    "166534", "16A34A", "047857", "15803D", "22C55E", "059669",
 ]]
-C_GESTION   = _hex("7C3AED")
-C_PREP      = _hex("1B8A3E")
-C_MES       = _hex("4B5563")
-C_SEM_BG    = _hex("D1D5DB")
-C_SEM_TX    = _hex("374151")
-C_KO        = _hex("374151")
-C_SPRINT    = _hex("374151")
-C_INFO_BG   = _hex("F3F0FF")
-C_INFO_BOR  = _hex("8B5CF6")
-C_TITULO    = _hex("111827")
-C_SUBTITULO = _hex("6B7280")
-C_BADGE     = _hex("10B981")
+C_GESTION   = _hex("047857")
+C_PREP      = _hex("166534")
+C_MES       = _hex("15803D")
+C_SEM_BG    = _hex("DCFCE7")
+C_SEM_TX    = _hex("166534")
+C_KO        = _hex("14532D")
+C_SPRINT    = _hex("059669")
+C_INFO_BG   = _hex("F0FDF4")
+C_INFO_BOR  = _hex("16A34A")
+C_TITULO    = _hex("14532D")
+C_SUBTITULO = _hex("166534")
+C_BADGE     = _hex("16A34A")
 C_WHITE     = (255, 255, 255)
 C_BG        = (255, 255, 255)
 
@@ -425,7 +423,7 @@ def _render(actividades, roles, total_semanas, meta) -> bytes:
 
     # ── 7. Actividades ────────────────────────────────────────────────────
     for i, act in enumerate(actividades):
-        color  = BARRA_COLORES_RGB[i % len(BARRA_COLORES_RGB)]
+        color  = BARRA_COLORES_RGB[(i + 1) % len(BARRA_COLORES_RGB)]
         bar_px = act["semanas"] * COL_W
         _act_row(draw, y, act["torre"], COL_A+COL_B, bar_px, color,
                  F, PAD, COL_A, ROW_ACT, BAR_R)
