@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { generarCronograma } from '../services/cronogramaService'
+import { clasificarProductividad, generarCronograma } from '../services/cronogramaService'
 import { useDownload } from '../../../shared/hooks/useDownload'
 
 export default function CronogramaForm() {
@@ -11,6 +11,7 @@ export default function CronogramaForm() {
   const [loading, setLoading]  = useState(false)
   const [error, setError]      = useState(null)
   const [horasSemanales, setHorasSemanales] = useState(42)
+  const [productivityReview, setProductivityReview] = useState(null)
   const { download }           = useDownload()
 
   function process(file) {
@@ -50,23 +51,66 @@ export default function CronogramaForm() {
     setLoading(true)
     setError(null)
     try {
-      const result = await generarCronograma({
-        proyecto:    parsed.proyecto,
-        cliente:     parsed.cliente,
-        roles:       parsed.roles,
-        actividades: parsed.actividades,
-        horas_semanales: Math.max(1, Number(horasSemanales) || 42),
-      })
-      download(
-        result.content_b64,
-        result.filename,
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
+      const review = await clasificarProductividad(parsed.roles)
+      const nonProductive = review.filter(profile => !profile.productivo)
+      if (nonProductive.length > 0) {
+        setProductivityReview(review)
+        return
+      }
+      await downloadCronograma(parsed.actividades)
     } catch (err) {
       setError(err?.message || String(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  async function downloadCronograma(actividades) {
+    const result = await generarCronograma({
+      proyecto:    parsed.proyecto,
+      cliente:     parsed.cliente,
+      roles:       parsed.roles,
+      actividades,
+      horas_semanales: Math.max(1, Number(horasSemanales) || 42),
+    })
+    download(
+      result.content_b64,
+      result.filename,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+  }
+
+  async function confirmProductivity() {
+    if (!productivityReview || !parsed) return
+    setLoading(true)
+    setError(null)
+    try {
+      const productiveByTower = new Map()
+      for (const profile of productivityReview) {
+        if (!profile.productivo) continue
+        const tower = normalizarTorre(profile.torre)
+        productiveByTower.set(
+          tower,
+          (productiveByTower.get(tower) || 0) + Math.max(1, Number(profile.personas) || 1),
+        )
+      }
+      const actividades = parsed.actividades.map(activity => ({
+        ...activity,
+        personas: productiveByTower.get(normalizarTorre(activity.torre)) || 1,
+      }))
+      setProductivityReview(null)
+      await downloadCronograma(actividades)
+    } catch (err) {
+      setError(err?.message || String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function toggleProductive(index) {
+    setProductivityReview(current => current.map((profile, i) => (
+      i === index ? { ...profile, productivo: !profile.productivo } : profile
+    )))
   }
 
   const totalHrs = parsed?.actividades?.reduce((s, a) => s + (a.horas || 0), 0) ?? 0
@@ -205,6 +249,54 @@ export default function CronogramaForm() {
             </button>
           </div>
         </>
+      )}
+
+      {productivityReview && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="productivity-review-title"
+          style={{ position: 'fixed', inset: 0, zIndex: 20, background: 'rgba(0, 0, 0, .62)', display: 'grid', placeItems: 'center', padding: 20 }}
+        >
+          <div style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflow: 'auto', background: 'var(--panel, #17231c)', border: '1px solid rgba(46, 204, 113, .35)', borderRadius: 12, padding: 24, color: 'var(--white, #fff)' }}>
+            <h2 id="productivity-review-title" style={{ margin: '0 0 8px' }}>Revisión de perfiles</h2>
+            <p style={{ margin: '0 0 18px', color: 'var(--muted, #aab7ad)', lineHeight: 1.45 }}>
+              La IA detectó perfiles que normalmente no desarrollan directamente. Decide si cada uno debe contar para reducir la duración de su torre.
+            </p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {productivityReview.map((profile, index) => (
+                <div key={`${profile.indice}-${profile.perfil}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: 12, border: '1px solid rgba(255,255,255,.12)', borderRadius: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong>{profile.perfil}</strong>
+                    <div style={{ fontSize: 12, color: 'var(--muted, #aab7ad)', marginTop: 4 }}>
+                      {profile.torre || 'Torre no especificada'} · {profile.personas} persona(s)
+                    </div>
+                    {!profile.productivo && profile.explicacion && (
+                      <div style={{ fontSize: 12, color: '#f0c674', marginTop: 5 }}>{profile.explicacion}</div>
+                    )}
+                  </div>
+                  {!profile.productivo ? (
+                    <button type="button" onClick={() => toggleProductive(index)} className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                      Agregar como productivo
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => toggleProductive(index)} className="btn-gen" style={{ whiteSpace: 'nowrap', padding: '8px 12px' }}>
+                      Productivo
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button type="button" className="btn-secondary" onClick={() => setProductivityReview(null)} disabled={loading}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-gen" onClick={confirmProductivity} disabled={loading}>
+                {loading ? 'Generando...' : 'Continuar y generar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

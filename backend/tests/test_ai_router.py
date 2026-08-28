@@ -15,6 +15,28 @@ def test_ai_chat_route_success(client, monkeypatch):
     assert response.json() == {"reply": "Hola desde IA"}
 
 
+def test_ai_productivity_route_success(client, monkeypatch):
+    monkeypatch.setattr(
+        ai_router,
+        "clasificar_productividad_perfiles",
+        lambda perfiles: [
+            {**perfiles[0], "indice": 0, "productivo": True, "explicacion": "Desarrolla código."},
+            {**perfiles[1], "indice": 1, "productivo": False, "explicacion": "Coordina al equipo."},
+        ],
+    )
+
+    response = client.post(
+        "/api/v1/ai/clasificar-productividad",
+        json={"perfiles": [
+            {"perfil": "Desarrollador Java", "torre": "Backend", "personas": 1},
+            {"perfil": "Líder Técnico", "torre": "Backend", "personas": 1},
+        ]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["perfiles"][1]["productivo"] is False
+
+
 def test_ai_modify_proposal_validation_errors(client):
     response = client.post(
         "/api/v1/ai/modificar-propuesta",

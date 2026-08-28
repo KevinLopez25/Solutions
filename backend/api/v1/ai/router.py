@@ -15,6 +15,7 @@ from domain.ai.service import (
     completar_descripciones_y_pptx,
     sugerir_descripciones_pendientes,
     aplicar_descripciones_aprobadas,
+    clasificar_productividad_perfiles,
 )
 
 
@@ -43,6 +44,27 @@ class AIModifyProposalResponse(BaseModel):
 
 
 router = APIRouter(prefix="/ai", tags=["IA"])
+
+
+class AIProductividadRequest(BaseModel):
+    perfiles: list[dict]
+
+
+class AIProductividadResponse(BaseModel):
+    perfiles: list[dict]
+
+
+@router.post("/clasificar-productividad", response_model=AIProductividadResponse)
+def clasificar_productividad_endpoint(request: AIProductividadRequest):
+    try:
+        return AIProductividadResponse(
+            perfiles=clasificar_productividad_perfiles(request.perfiles)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc) or "No se pudo clasificar la productividad de los perfiles",
+        )
 
 
 @router.post("/chat", response_model=AIChatResponse)

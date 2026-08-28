@@ -27,7 +27,7 @@ def _hex(h):
 VERDES_PRIMARIOS = ["166534", "15803D", "16A34A", "22C55E", "059669", "047857"]
 BARRA_COLORES_RGB = [_hex(c) for c in VERDES_PRIMARIOS]
 ROLE_COLORS_RGB = [_hex(c) for c in [
-    "166534", "16A34A", "047857", "15803D", "22C55E", "059669",
+    "15803D", "16A34A", "047857", "166534", "22C55E", "059669",
 ]]
 C_GESTION   = _hex("047857")
 C_PREP      = _hex("166534")

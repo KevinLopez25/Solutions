@@ -11,6 +11,20 @@ def test_generate_cronograma_image_raises_on_missing_activities():
         cron_image.generate_cronograma_image({'actividades': []})
 
 
+def test_cronograma_image_colors_are_green_and_do_not_repeat():
+    assert all(
+        color[1] > color[0] and color[1] > color[2]
+        for color in cron_image.BARRA_COLORES_RGB
+    )
+    assert all(
+        first != second
+        for first, second in zip(
+            cron_image.BARRA_COLORES_RGB,
+            cron_image.BARRA_COLORES_RGB[1:],
+        )
+    )
+
+
 @pytest.mark.parametrize('total_semanas,people_per_act', [
     (1, 1),
     (2, 2),

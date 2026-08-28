@@ -1,4 +1,6 @@
 from infrastructure.generators.cronograma_excel import (
+    BARRA_COLORES,
+    ROLE_COLORS,
     _build_drawing,
     _pill_extra_columns,
 )
@@ -33,3 +35,13 @@ def test_role_pills_expand_without_truncating_labels():
     assert "Gerente de Proyecto SAP" in drawing
     assert "…" not in drawing
     assert _pill_extra_columns(roles, 7) > 0
+
+
+def test_cronograma_colors_are_green_and_do_not_repeat_consecutively():
+    colors = BARRA_COLORES + ROLE_COLORS
+
+    assert all(color in {
+        "166534", "15803D", "16A34A", "22C55E", "059669", "047857",
+    } for color in colors)
+    assert all(first != second for first, second in zip(BARRA_COLORES, BARRA_COLORES[1:]))
+    assert all(first != second for first, second in zip(ROLE_COLORS, ROLE_COLORS[1:]))

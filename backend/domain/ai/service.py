@@ -11,6 +11,56 @@ from lxml import etree
 
 from core.groq_client import create_chat_completion
 
+
+def clasificar_productividad_perfiles(perfiles: list[dict]) -> list[dict]:
+    """Clasifica qué perfiles aportan capacidad directa de desarrollo."""
+    if not perfiles:
+        return []
+
+    payload = [
+        {
+            "indice": index,
+            "perfil": str(item.get("perfil", item.get("rol", ""))).strip(),
+            "torre": str(item.get("torre", "")).strip(),
+            "personas": max(1, int(item.get("personas", 1))),
+        }
+        for index, item in enumerate(perfiles)
+    ]
+    prompt = (
+        "Clasifica los perfiles de un equipo de TI según si desarrollan software "
+        "directamente. Responde SOLO JSON válido con una lista de objetos con "
+        "indice, productivo (booleano) y explicacion (máximo 15 palabras). "
+        "Desarrolladores, programadores, ingenieros de software y perfiles de "
+        "implementación son productivos. Arquitectos, líderes técnicos, managers, "
+        "PM, analistas, QA, Scrum Masters y soporte son no productivos, salvo que "
+        "el nombre indique claramente que también programan. Perfiles recibidos:\n"
+        f"{json.dumps(payload, ensure_ascii=False)}"
+    )
+    response = create_chat_completion(
+        [
+            {"role": "system", "content": "Eres un clasificador preciso de roles técnicos."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=900,
+    )
+    raw = response.strip().removeprefix("```json").removesuffix("```").strip()
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("La IA devolvió una clasificación inválida.") from exc
+    if not isinstance(result, list):
+        raise RuntimeError("La IA devolvió una clasificación inválida.")
+
+    by_index = {int(item.get("indice")): item for item in result if isinstance(item, dict)}
+    return [
+        {
+            **item,
+            "productivo": bool(by_index.get(index, {}).get("productivo", True)),
+            "explicacion": str(by_index.get(index, {}).get("explicacion", "")),
+        }
+        for index, item in enumerate(payload)
+    ]
+
 SYSTEM_PROMPT = (
     "Eres un asistente experto especializado en revisar y optimizar propuestas comerciales de TI. "
     "\n\n"
