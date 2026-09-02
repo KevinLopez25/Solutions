@@ -44,7 +44,7 @@ COLOR_SUBTITULO = "166534"
 # ── EMU columnas ──────────────────────────────────────────────────────────────
 PADDING     =   38_100
 COL_A_EMU   = 1_600_200   # col A – etiquetas actividades
-COL_B_EMU   =   457_200   # col B – kick off / S0 / Sprint 0
+COL_B_EMU   =   914_400   # col B – kick off / S0 / Sprint 0 (2 semanas)
 COL_SEM_EMU =   457_200   # cada semana
 
 # ── EMU filas ─────────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ def _configurar_dimensiones(ws, total_semanas, filas_pills, sin_semanas,
         ws.row_dimensions[rr].height = 24
 
     ws.column_dimensions["A"].width = 23
-    ws.column_dimensions["B"].width = 6
+    ws.column_dimensions["B"].width = 12
     for i in range(total_semanas + extra_cols):
         ws.column_dimensions[get_column_letter(i + 3)].width = 6
 
@@ -337,7 +337,7 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     else:
         info_h = ROW_HDR_EMU + ROW_SUB_EMU + ROW_SPRINT_EMU
 
-    info_h -= PADDING * 2   # pequeño margen
+    info_h += ROW_ACT_EMU - PADDING * 2
 
     # Fondo del card
     sid = _shape_abs(root, sid, "",
@@ -350,21 +350,13 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
     # Textos del card (todos dentro de ROW_MES con offsets Y)
     _txt_y = PADDING * 3
 
-    # "INFORMACIÓN DEL PROYECTO"
-    sid = _shape_abs(root, sid, "INFORMACIÓN DEL PROYECTO",
-                     row=ROW_MES, x=PADDING*3, y=_txt_y,
-                     w=COL_A_EMU - PADDING*5, h=ROW_HDR_EMU // 2,
-                     color=COLOR_INFO_BG, text_color="8B5CF6",
-                     font_sz=640, bold=False, geom="rect")
-    _txt_y += ROW_HDR_EMU // 2 + PADDING
-
-    # Nombre del proyecto
+    # Nombre del proyecto como encabezado de la tarjeta
     sid = _shape_abs(root, sid, meta["nombre_proyecto"],
                      row=ROW_MES, x=PADDING*3, y=_txt_y,
-                     w=COL_A_EMU - PADDING*5, h=ROW_HDR_EMU,
+                     w=COL_A_EMU - PADDING*5, h=ROW_HDR_EMU + PADDING,
                      color=COLOR_INFO_BG, text_color=COLOR_TITULO,
                      font_sz=1000, bold=True, geom="rect")
-    _txt_y += ROW_HDR_EMU + PADDING
+    _txt_y += ROW_HDR_EMU + PADDING * 2
 
     # Torre
     if meta["torre"]:

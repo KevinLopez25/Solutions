@@ -91,18 +91,28 @@ export function usePropuesta() {
     setOpciones(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function generate(efectivosManuales, useTemplate = false) {
+  async function generate(efectivosManuales, useTemplate = false, productivityReview = null) {
     setLoading(true)
     setError(null)
     setProposalDraft(null)
     try {
+      const productiveByTower = new Map()
+      if (productivityReview) {
+        productivityReview.forEach(profile => {
+          if (!profile.productivo) return
+          const tower = String(profile.torre || '').replace(/^torre\s+/i, '').trim().toLowerCase()
+          productiveByTower.set(tower, (productiveByTower.get(tower) || 0) + Math.max(1, Number(profile.personas) || 1))
+        })
+      }
       const actividades = (excelData?.torres || [])
         .filter(t => t && typeof t === 'object' && Number(t.horas) > 0)
         .map(t => ({
           torre:     String(t.nombre || '').trim(),
           actividad: String(t.nombre || '').trim(),
           horas:     Math.round(Number(t.horas) || 0),
-          personas:  Math.max(1, Math.round(Number(t.personas) || 1)),
+          personas:  productivityReview
+            ? (productiveByTower.get(String(t.nombre || '').replace(/^torre\s+/i, '').trim().toLowerCase()) || 1)
+            : Math.max(1, Math.round(Number(t.personas) || 1)),
         }))
 
       const roles = (excelData?.perfiles || [])
@@ -112,6 +122,7 @@ export function usePropuesta() {
           perfil:    String(p.perfil || '').trim(),
           seniority: String(p.seniority || '').trim(),
           personas:  Math.max(1, Math.round(Number(p.personas) || 1)),
+          ...(productivityReview ? { productivo: Boolean(productivityReview.find(item => item.perfil === p.perfil && item.torre === p.torre)?.productivo) } : {}),
         }))
 
       // Construir un objeto limpio solo con datos necesarios
@@ -130,6 +141,7 @@ export function usePropuesta() {
             perfil:    String(p.perfil || '').trim(),
             seniority: String(p.seniority || '').trim(),
             personas:  Math.max(1, Math.round(Number(p.personas) || 1)),
+            ...(productivityReview ? { productivo: Boolean(productivityReview.find(item => item.perfil === p.perfil && item.torre === p.torre)?.productivo) } : {}),
             horas:     Math.round(Number(p.horas) || 0),
           })),
         consideraciones: (excelData?.consideraciones || []).map(c => String(c).trim()).filter(c => c.length > 0).slice(0, 20),

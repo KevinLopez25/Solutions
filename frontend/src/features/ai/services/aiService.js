@@ -31,3 +31,7 @@ export function sugerirDescripciones(payload) {
 export function aplicarDescripciones(payload) {
   return api.post('/ai/aplicar-descripciones', payload).then((res) => res.data)
 }
+
+export function clasificarProductividad(perfiles) {
+  return api.post('/ai/clasificar-productividad', { perfiles }).then((res) => res.data.perfiles)
+}

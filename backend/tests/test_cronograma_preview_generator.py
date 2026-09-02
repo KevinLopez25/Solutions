@@ -171,6 +171,23 @@ class TestEdit:
         result = edit(pptx, config)
         assert isinstance(result, bytes)
 
+    @patch('infrastructure.generators.cronograma_preview._png_aspect', return_value=3.1)
+    @patch('infrastructure.generators.cronograma_preview.generate_cronograma_image', return_value=b'fake-png')
+    def test_edit_uses_only_productive_profiles_for_image(self, mock_gen, mock_aspect):
+        pptx = _build_pptx({'ppt/slides/slide1.xml': SAMPLE_SLIDE})
+        config = {
+            'actividades': [{'torre': 'Backend', 'horas': 420, 'personas': 2}],
+            'roles': [
+                {'perfil': 'Desarrollador Java', 'torre': 'Backend', 'personas': 1, 'productivo': True},
+                {'perfil': 'Lider Tecnico', 'torre': 'Backend', 'personas': 1, 'productivo': False},
+            ],
+            'excel_data': {'proyecto': 'Test'},
+        }
+
+        edit(pptx, config)
+
+        assert mock_gen.call_args.args[0]['actividades'][0]['personas'] == 1
+
     @patch('infrastructure.generators.cronograma_preview._png_aspect')
     @patch('infrastructure.generators.cronograma_preview.generate_cronograma_image')
     def test_edit_with_excel_data(self, mock_gen, mock_aspect):

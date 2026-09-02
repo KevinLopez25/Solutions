@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FILIALES, FILIAL_LABELS, FILIAL_CODES, TORRES_ALL, TORRE_ICONS, PILL_LABELS } from '../../../core/constants'
 import { usePropuesta } from '../hooks/usePropuesta'
 import { reemplazarLogo } from '../../ai/services/aiService'
+import { clasificarProductividad } from '../../ai/services/aiService'
 import { subirPlantillaTemplate } from '../services/propuestaService'
 import ExcelUploader from './ExcelUploader'
 import TorreSelector from './TorreSelector'
@@ -24,6 +25,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   const [logoMsg, setLogoMsg] = useState(null) // { ok: bool, text: string }
   const [templateMsg, setTemplateMsg] = useState(null)
   const [uploadingTemplate, setUploadingTemplate] = useState(false)
+  const [productivityReview, setProductivityReview] = useState(null)
   const {
     filial, setFilial,
     excelData, setExcelData,
@@ -181,7 +183,18 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
 
   async function handleGenerate() {
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
-    let draft = await generate(efectivos)
+    if (!productivityReview && excelData?.perfiles?.length) {
+      try {
+        const review = await clasificarProductividad(excelData.perfiles)
+        if (review.some(profile => !profile.productivo)) {
+          setProductivityReview(review)
+          return
+        }
+      } catch (err) {
+        console.error('Productivity classification error:', err)
+      }
+    }
+    let draft = await generate(efectivos, false, productivityReview)
     if (!draft) return
 
     if (logoFile) {
@@ -202,6 +215,17 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     }
 
     if (onDraftGenerated) onDraftGenerated(draft)
+    setProductivityReview(null)
+  }
+
+  function toggleProductive(index) {
+    setProductivityReview(current => current.map((profile, i) => (
+      i === index ? { ...profile, productivo: !profile.productivo } : profile
+    )))
+  }
+
+  function cancelProductivityReview() {
+    setProductivityReview(null)
   }
 
   function handleDownload() {
@@ -679,6 +703,51 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                   >
                     {reviewRequested ? '⬇ Descargar con cambios IA' : '🔍 Pendiente revisión IA'}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {productivityReview && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="proposal-productivity-title"
+                style={{ position: 'fixed', inset: 0, zIndex: 30, background: 'rgba(0, 0, 0, .64)', display: 'grid', placeItems: 'center', padding: 20 }}
+              >
+                <div style={{ width: 'min(600px, 100%)', maxHeight: '90vh', overflow: 'auto', background: 'var(--panel, #17231c)', border: '1px solid rgba(46, 204, 113, .35)', borderRadius: 12, padding: 24, color: 'var(--white, #fff)' }}>
+                  <h2 id="proposal-productivity-title" style={{ margin: '0 0 8px' }}>Revisión de perfiles del cronograma</h2>
+                  <p style={{ margin: '0 0 18px', color: 'var(--muted, #aab7ad)', lineHeight: 1.45 }}>
+                    La IA encontró perfiles que normalmente no desarrollan directamente. Puedes decidir cuáles deben contar para reducir la duración de su torre.
+                  </p>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {productivityReview.map((profile, index) => (
+                      <div key={`${profile.indice}-${profile.perfil}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: 12, border: '1px solid rgba(255,255,255,.12)', borderRadius: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <strong>{profile.perfil}</strong>
+                          <div style={{ fontSize: 12, color: 'var(--muted, #aab7ad)', marginTop: 4 }}>
+                            {profile.torre || 'Torre no especificada'} · {profile.personas} persona(s)
+                          </div>
+                          {!profile.productivo && profile.explicacion && (
+                            <div style={{ fontSize: 12, color: '#f0c674', marginTop: 5 }}>{profile.explicacion}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className={profile.productivo ? 'btn-gen' : 'btn-secondary'}
+                          onClick={() => toggleProductive(index)}
+                          style={{ whiteSpace: 'nowrap', padding: '8px 12px' }}
+                        >
+                          {profile.productivo ? 'Productivo' : 'Agregar como productivo'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+                    <button type="button" className="btn-secondary" onClick={cancelProductivityReview}>Cancelar</button>
+                    <button type="button" className="btn-gen" onClick={handleGenerate} disabled={loading}>
+                      {loading ? 'Generando...' : 'Continuar y generar'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

@@ -64,6 +64,7 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
                    for a in actividades]
     roles = [r.model_dump() if hasattr(r, "model_dump") else dict(r)
              for r in roles]
+    actividades = _apply_productive_profiles(actividades, roles)
 
     cfg = {
         "actividades":     actividades,
@@ -85,6 +86,7 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
         _log(f"Error generando PNG: {e}")
         import traceback; traceback.print_exc()
         return pptx_bytes
+
 
     # ── Calcular aspect ratio real desde el PNG ───────────────────────────
     aspect_w_over_h = _png_aspect(png_bytes)
@@ -137,6 +139,35 @@ def edit(pptx_bytes: bytes, config: dict, catalog_data=None) -> bytes:
         _log(f"Error insertando imagen: {e}")
         import traceback; traceback.print_exc()
         return pptx_bytes
+
+
+def _normalizar_torre(nombre: str) -> str:
+    return re.sub(r"^torre\s+", "", str(nombre or "").strip(), flags=re.IGNORECASE).lower()
+
+
+def _apply_productive_profiles(actividades: list[dict], roles: list[dict]) -> list[dict]:
+    """Usa la decisión del modal solo para el cronograma de la propuesta."""
+    if not roles or not any("productivo" in role for role in roles):
+        return actividades
+
+    productive_by_tower = {}
+    for role in roles:
+        if not role.get("productivo"):
+            continue
+        tower = _normalizar_torre(role.get("torre", ""))
+        productive_by_tower[tower] = productive_by_tower.get(tower, 0) + max(
+            1, int(role.get("personas", 1))
+        )
+
+    return [
+        {
+            **activity,
+            "personas": productive_by_tower.get(
+                _normalizar_torre(activity.get("torre", "")), 1
+            ),
+        }
+        for activity in actividades
+    ]
 
 
 # ── Orden de slides ───────────────────────────────────────────────────────────
