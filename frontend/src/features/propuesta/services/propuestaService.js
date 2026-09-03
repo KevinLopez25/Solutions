@@ -23,3 +23,31 @@ export async function getPerfilesCatalog(torreId) {
   const { data } = await api.get('/catalogo/perfiles', { params })
   return data
 }
+
+export async function buscarTarjetasComerciales(q, pais) {
+  const { data } = await api.get('/propuesta/tarjetas-comerciales', {
+    params: { q: q || '', pais: pais || '' },
+  })
+  return data
+}
+
+export async function listarPaisesTarjetas() {
+  const { data } = await api.get('/propuesta/paises-tarjetas')
+  return data
+}
+
+export async function subirTarjetaComercial({ file, nombre, pais }) {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (nombre) formData.append('nombre', nombre)
+  if (pais) formData.append('pais', pais)
+  const { data } = await api.post('/propuesta/tarjetas-comerciales/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function eliminarTarjetaComercial(nombre, pais) {
+  const { data } = await api.delete(`/propuesta/tarjetas-comerciales/${encodeURIComponent(pais || '')}/${encodeURIComponent(nombre)}`)
+  return data
+}

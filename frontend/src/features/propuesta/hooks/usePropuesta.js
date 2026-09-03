@@ -93,7 +93,7 @@ export function usePropuesta() {
     setOpciones(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function generate(efectivosManuales, useTemplate = false, productivityReview = null) {
+  async function generate(efectivosManuales, useTemplate = false, tarjetaComercial = null) {
     setLoading(true)
     setError(null)
     setProposalDraft(null)
@@ -210,7 +210,13 @@ export function usePropuesta() {
         as_is_description:    cleanAsIsDescription,
         actividades:          actividades.slice(0, 100),
         roles:                roles.slice(0, 100),
-        cronograma_por_perfiles: Boolean(cronogramaPorPerfiles),
+        tarjeta_comercial:    (tarjetaComercial && tarjetaComercial.nombre)
+          ? String(tarjetaComercial.nombre).trim()
+          : (tarjetaComercial && typeof tarjetaComercial === 'string'
+              ? tarjetaComercial : null),
+        tarjeta_comercial_pais: (tarjetaComercial && tarjetaComercial.pais)
+          ? String(tarjetaComercial.pais).trim()
+          : null,
       }
 
       // Incluir template_name si se solicita usar plantilla personalizada
@@ -243,11 +249,13 @@ export function usePropuesta() {
     }
   }
 
-  async function applyTemplateToProposal(efectivosManuales) {
+  async function applyTemplateToProposal(efectivosManuales, tarjetaComercial = null) {
     if (!templateName) return
     setApplyingTemplate(true)
     setError(null)
-    return generate(efectivosManuales, true)
+    // IMPORTANTE: propagar la tarjeta comercial también al regenerar con plantilla,
+    // si no los 2 slides de la tarjeta se pierden en la regeneración.
+    return generate(efectivosManuales, true, tarjetaComercial)
   }
 
   function downloadProposal(draft) {
