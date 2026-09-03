@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FILIALES, FILIAL_LABELS, FILIAL_CODES, TORRES_ALL, TORRE_ICONS, PILL_LABELS } from '../../../core/constants'
 import { usePropuesta } from '../hooks/usePropuesta'
-import { reemplazarLogo } from '../../ai/services/aiService'
-import { clasificarProductividad } from '../../ai/services/aiService'
+import { reemplazarLogo, clasificarProductividad } from '../../ai/services/aiService'
 import { subirPlantillaTemplate } from '../services/propuestaService'
 import ExcelUploader from './ExcelUploader'
 import TorreSelector from './TorreSelector'
@@ -38,6 +37,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     asIsDescription, setAsIsDescription,
     horasSemanales, setHorasSemanales,
     cronogramaPorPerfiles, setCronogramaPorPerfiles,
+    productivityReview, setProductivityReview,
     loading, error,
     generate,
     downloadProposal,
@@ -184,6 +184,19 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   }
 
   async function handleGenerate() {
+    if (excelData?.perfiles?.length && !productivityReview) {
+      try {
+        const review = await clasificarProductividad(excelData.perfiles)
+        if (review.some(profile => !profile.productivo)) {
+          setProductivityReview(review)
+          return
+        }
+      } catch (err) {
+        setError(err?.response?.data?.detail || err?.message || 'No se pudo verificar la productividad de los perfiles.')
+        return
+      }
+    }
+
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
     let draft = await generate(efectivos, false, tarjetaComercial)
     if (!draft) return

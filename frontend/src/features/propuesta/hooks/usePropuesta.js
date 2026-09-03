@@ -78,6 +78,7 @@ export function usePropuesta() {
   const [asIsDescription, setAsIsDescription] = useState('')
   const [horasSemanales, setHorasSemanales] = useState(42)
   const [cronogramaPorPerfiles, setCronogramaPorPerfiles] = useState(false)
+  const [productivityReview, setProductivityReview] = useState(null)
   const [loading, setLoading]              = useState(false)
   const [error, setError]                  = useState(null)
   const [proposalDraft, setProposalDraft]  = useState(null)
@@ -278,7 +279,8 @@ export function usePropuesta() {
     asIsDescription, setAsIsDescription,
     horasSemanales, setHorasSemanales,
     cronogramaPorPerfiles, setCronogramaPorPerfiles,
-    loading, error,
+    productivityReview, setProductivityReview,
+    loading, error, setError,
     proposalDraft,
     generate,
     downloadProposal,
