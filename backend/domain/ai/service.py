@@ -148,14 +148,19 @@ VERIFY_SYSTEM_PROMPT = (
 
 
 def _project_context_for_verification(db_session, torre_nombre: str | None = None) -> str:
-    """Construye un contexto breve y REAL del proyecto para verificar descripciones."""
+    """Construye un contexto breve y REAL del proyecto para verificar descripciones.
+
+    El contexto se acota (torre objetivo primero, máx. 1200 caracteres ≈ 300
+    tokens) para no agotar el límite de tokens por minuto (TPM) de Groq en
+    cada llamada de verificación, que era la causa del error de rate limit.
+    """
     try:
         from infrastructure.repositories import catalogo_repository as repo
         torres = repo.get_torres(db_session, solo_activas=True)
         if torre_nombre:
             torres = [t for t in torres if _normalize_text(t.nombre) == _normalize_text(torre_nombre)] or torres
         lines = []
-        for t in torres[:6]:
+        for t in torres[:3]:
             perfiles = repo.get_perfiles(db_session, torre_id=t.id)
             consideraciones = repo.get_consideraciones(db_session, torre_id=t.id)
             fda = repo.get_fuera_alcance(db_session, torre_id=t.id)
@@ -167,7 +172,11 @@ def _project_context_for_verification(db_session, torre_nombre: str | None = Non
             if fda:
                 partes.append("Fuera de alcance: " + ", ".join(f.item for f in fda[:5]))
             lines.append(" | ".join(partes))
-        return "\n".join(lines).strip()
+        context = "\n".join(lines).strip()
+        # Acotar tamaño: ~1200 caracteres ≈ 300 tokens (protege el TPM de Groq)
+        if len(context) > 1200:
+            context = context[:1200].rsplit(" ", 1)[0]
+        return context
     except Exception:
         return ''
 
