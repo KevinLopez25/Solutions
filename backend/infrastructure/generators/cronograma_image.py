@@ -207,7 +207,7 @@ def generate_cronograma_image(config: dict) -> bytes:
     total_horas = 0
     for act in actividades:
         p = max(1, int(act.get("personas", 1)))
-        act["semanas"] = max(1, math.ceil(act["horas"] / horas_semanales / p))
+        act["semanas"] = _calcular_semanas(act["horas"], horas_semanales, p)
         total_horas += act["horas"]
 
     total_semanas  = max(a["semanas"] for a in actividades)
@@ -227,6 +227,12 @@ def _horas_semanales(value):
     except (TypeError, ValueError):
         return HORAS_SEMANALES_DEFAULT
     return horas if horas > 0 else HORAS_SEMANALES_DEFAULT
+
+
+def _calcular_semanas(horas, horas_semanales, personas):
+    horas_semanales_perfil = float(horas) / float(horas_semanales)
+    semanas = horas_semanales_perfil / max(1, int(personas))
+    return max(1, math.ceil(semanas))
 
 
 def _norm_roles(raw):
@@ -425,7 +431,7 @@ def _render(actividades, roles, total_semanas, meta) -> bytes:
     for i, act in enumerate(actividades):
         color  = BARRA_COLORES_RGB[(i + 1) % len(BARRA_COLORES_RGB)]
         bar_px = act["semanas"] * COL_W
-        _act_row(draw, y, act["torre"], COL_A+COL_B, bar_px, color,
+        _act_row(draw, y, act.get("etiqueta") or act.get("actividad") or act["torre"], COL_A+COL_B, bar_px, color,
                  F, PAD, COL_A, ROW_ACT, BAR_R)
         y += ROW_ACT
 

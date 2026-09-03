@@ -3,6 +3,7 @@ from infrastructure.generators.cronograma_excel import (
     ROLE_COLORS,
     _build_drawing,
     _pill_extra_columns,
+    _calcular_semanas,
 )
 
 
@@ -64,3 +65,77 @@ def test_project_card_uses_project_name_and_sprint_zero_matches_normal_width():
     assert "INFORMACIÓN DEL PROYECTO" not in drawing
     assert '<xdr:col>1</xdr:col><xdr:colOff>38100</xdr:colOff>' in drawing
     assert '<xdr:col>1</xdr:col><xdr:colOff>876300</xdr:colOff>' in drawing
+
+
+def test_profile_label_is_used_when_present():
+    meta = {
+        "fecha": "",
+        "total_horas": 0,
+        "duracion_meses": 0,
+        "nombre_proyecto": "",
+        "torre": "",
+        "id_proyecto": "",
+        "ROW_HDR_START": 1,
+    }
+
+    drawing = _build_drawing(
+        [{"torre": "Backend", "etiqueta": "Desarrollador Java", "semanas": 1}],
+        [],
+        1,
+        meta,
+        sin_semanas=False,
+    )
+
+    assert "Desarrollador Java" in drawing
+
+
+def test_activity_name_is_used_as_profile_label_when_etiqueta_is_missing():
+    meta = {
+        "fecha": "",
+        "total_horas": 0,
+        "duracion_meses": 0,
+        "nombre_proyecto": "",
+        "torre": "",
+        "id_proyecto": "",
+        "ROW_HDR_START": 1,
+    }
+
+    drawing = _build_drawing(
+        [{"torre": "Data", "actividad": "Analista de Datos", "semanas": 1}],
+        [],
+        1,
+        meta,
+        sin_semanas=False,
+    )
+
+    assert "Analista de Datos" in drawing
+
+
+def test_profile_duration_divides_weekly_hours_then_people():
+    assert _calcular_semanas(516, 42, 2) == 7
+
+
+def test_multiple_profile_activities_remain_multiple_rows():
+    meta = {
+        "fecha": "",
+        "total_horas": 0,
+        "duracion_meses": 0,
+        "nombre_proyecto": "",
+        "torre": "",
+        "id_proyecto": "",
+        "ROW_HDR_START": 1,
+    }
+
+    drawing = _build_drawing(
+        [
+            {"torre": "Data", "etiqueta": "Analista de Datos", "semanas": 1},
+            {"torre": "Data", "etiqueta": "Arquitecto de Datos", "semanas": 1},
+        ],
+        [],
+        1,
+        meta,
+        sin_semanas=False,
+    )
+
+    assert drawing.count("Analista de Datos") == 1
+    assert drawing.count("Arquitecto de Datos") == 1

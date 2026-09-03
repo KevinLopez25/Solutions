@@ -11,6 +11,7 @@ export default function CronogramaForm() {
   const [loading, setLoading]  = useState(false)
   const [error, setError]      = useState(null)
   const [horasSemanales, setHorasSemanales] = useState(42)
+  const [cronogramaPorPerfiles, setCronogramaPorPerfiles] = useState(false)
   const [productivityReview, setProductivityReview] = useState(null)
   const { download }           = useDownload()
 
@@ -57,7 +58,7 @@ export default function CronogramaForm() {
         setProductivityReview(review)
         return
       }
-      await downloadCronograma(parsed.actividades)
+      await downloadCronograma(buildActivities(review))
     } catch (err) {
       setError(err?.message || String(err))
     } finally {
@@ -94,10 +95,7 @@ export default function CronogramaForm() {
           (productiveByTower.get(tower) || 0) + Math.max(1, Number(profile.personas) || 1),
         )
       }
-      const actividades = parsed.actividades.map(activity => ({
-        ...activity,
-        personas: productiveByTower.get(normalizarTorre(activity.torre)) || 1,
-      }))
+      const actividades = buildActivities(productivityReview, productiveByTower)
       setProductivityReview(null)
       await downloadCronograma(actividades)
     } catch (err) {
@@ -111,6 +109,38 @@ export default function CronogramaForm() {
     setProductivityReview(current => current.map((profile, i) => (
       i === index ? { ...profile, productivo: !profile.productivo } : profile
     )))
+  }
+
+  function buildActivities(review, productiveByTower = null) {
+    if (!cronogramaPorPerfiles) {
+      if (!productiveByTower) return parsed.actividades
+      return parsed.actividades.map(activity => ({
+        ...activity,
+        personas: productiveByTower.get(normalizarTorre(activity.torre)) || 1,
+      }))
+    }
+
+    const profileReview = new Map((review || []).map(profile => [profile.indice, profile]))
+    const peopleByProfile = new Map()
+    for (const profile of parsed.roles) {
+      const key = `${normalizarTorre(profile.torre)}|${String(profile.perfil || '').trim().toLowerCase()}`
+      peopleByProfile.set(key, (peopleByProfile.get(key) || 0) + Math.max(1, Number(profile.personas) || 1))
+    }
+    const profileActivities = parsed.roles
+      .map((profile, index) => ({ profile, index }))
+      .filter(({ profile }) => Number(profile.horas) > 0)
+      .map(({ profile, index }) => {
+        const decision = profileReview.get(index)
+        return {
+          torre: profile.torre,
+          etiqueta: profile.perfil,
+          horas: profile.horas,
+          personas: decision && !decision.productivo
+            ? 1
+            : peopleByProfile.get(`${normalizarTorre(profile.torre)}|${String(profile.perfil || '').trim().toLowerCase()}`) || 1,
+        }
+      })
+    return profileActivities.length > 0 ? profileActivities : parsed.actividades
   }
 
   const totalHrs = parsed?.actividades?.reduce((s, a) => s + (a.horas || 0), 0) ?? 0
@@ -139,6 +169,15 @@ export default function CronogramaForm() {
               value={horasSemanales}
               onChange={e => setHorasSemanales(e.target.value)}
               style={{ width: '88px', padding: '7px 9px' }}
+            />
+          </label>
+          <label htmlFor="cronograma-by-profile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginTop: '12px' }}>
+            <span>Generar una línea por perfil</span>
+            <input
+              id="cronograma-by-profile"
+              type="checkbox"
+              checked={cronogramaPorPerfiles}
+              onChange={e => setCronogramaPorPerfiles(e.target.checked)}
             />
           </label>
         </div>
@@ -357,6 +396,7 @@ function parseAnexos(wb) {
       perfil:    String(r[1]).trim(),
       seniority: String(r[2] || '').trim(),
       personas:  Math.max(1, Math.round(parseNumber(r[3]) || 1)),
+      horas:     parseNumber(r[4]),
       torre:     String(r[0] || '').trim(),
     }))
 }

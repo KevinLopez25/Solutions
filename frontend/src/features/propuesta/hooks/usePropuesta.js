@@ -19,6 +19,7 @@ function buildProposalSummary(payload) {
   lines.push(`Archivo origen: ${excel.filename || 'Ninguno'}`)
   lines.push(`QA: ${payload.incluir_qa ? 'Sí' : 'No'}`)
   lines.push(`Horas laborables por semana: ${payload.horas_semanales || 42}`)
+  lines.push(`Cronograma: ${payload.cronograma_por_perfiles ? 'por perfiles' : 'por torres'}`)
   lines.push(`Secciones con genéricos: ${Object.entries(payload.opciones)
     .filter(([, enabled]) => enabled)
     .map(([key]) => key)
@@ -76,6 +77,7 @@ export function usePropuesta() {
   const [asIsEnabled, setAsIsEnabled]      = useState(false)
   const [asIsDescription, setAsIsDescription] = useState('')
   const [horasSemanales, setHorasSemanales] = useState(42)
+  const [cronogramaPorPerfiles, setCronogramaPorPerfiles] = useState(false)
   const [loading, setLoading]              = useState(false)
   const [error, setError]                  = useState(null)
   const [proposalDraft, setProposalDraft]  = useState(null)
@@ -104,7 +106,7 @@ export function usePropuesta() {
           productiveByTower.set(tower, (productiveByTower.get(tower) || 0) + Math.max(1, Number(profile.personas) || 1))
         })
       }
-      const actividades = (excelData?.torres || [])
+      const actividadesPorTorre = (excelData?.torres || [])
         .filter(t => t && typeof t === 'object' && Number(t.horas) > 0)
         .map(t => ({
           torre:     String(t.nombre || '').trim(),
@@ -114,6 +116,31 @@ export function usePropuesta() {
             ? (productiveByTower.get(String(t.nombre || '').replace(/^torre\s+/i, '').trim().toLowerCase()) || 1)
             : Math.max(1, Math.round(Number(t.personas) || 1)),
         }))
+
+      const actividades = cronogramaPorPerfiles && excelData?.perfiles?.length
+        ? (() => {
+          const peopleByProfile = new Map()
+          excelData.perfiles.forEach((profile, index) => {
+            const key = `${String(profile.torre || '').trim().toLowerCase()}|${String(profile.perfil || '').trim().toLowerCase()}`
+            const decision = productivityReview?.[index]
+            if (!decision || decision.productivo) {
+              peopleByProfile.set(key, (peopleByProfile.get(key) || 0) + Math.max(1, Number(profile.personas) || 1))
+            }
+          })
+          return excelData.perfiles
+          .map((p, index) => ({ profile: p, index }))
+          .filter(({ profile }) => profile && typeof profile === 'object' && Number(profile.horas) > 0)
+            .map(({ profile: p, index }) => ({
+              torre: String(p.torre || '').trim(),
+              actividad: String(p.perfil || '').trim(),
+              etiqueta: String(p.perfil || '').trim(),
+              horas: Math.round(Number(p.horas) || 0),
+              personas: productivityReview?.[index] && !productivityReview[index].productivo
+                ? 1
+                : peopleByProfile.get(`${String(p.torre || '').trim().toLowerCase()}|${String(p.perfil || '').trim().toLowerCase()}`) || 1,
+            }))
+        })()
+        : actividadesPorTorre
 
       const roles = (excelData?.perfiles || [])
         .filter(p => p && typeof p === 'object' && p.perfil && String(p.perfil).trim() !== '')
@@ -183,6 +210,7 @@ export function usePropuesta() {
         as_is_description:    cleanAsIsDescription,
         actividades:          actividades.slice(0, 100),
         roles:                roles.slice(0, 100),
+        cronograma_por_perfiles: Boolean(cronogramaPorPerfiles),
       }
 
       // Incluir template_name si se solicita usar plantilla personalizada
@@ -241,6 +269,7 @@ export function usePropuesta() {
     asIsEnabled, setAsIsEnabled,
     asIsDescription, setAsIsDescription,
     horasSemanales, setHorasSemanales,
+    cronogramaPorPerfiles, setCronogramaPorPerfiles,
     loading, error,
     proposalDraft,
     generate,

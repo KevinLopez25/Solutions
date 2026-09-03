@@ -36,6 +36,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     asIsEnabled, setAsIsEnabled,
     asIsDescription, setAsIsDescription,
     horasSemanales, setHorasSemanales,
+    cronogramaPorPerfiles, setCronogramaPorPerfiles,
     loading, error,
     generate,
     downloadProposal,
@@ -568,6 +569,17 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                     value={horasSemanales}
                     onChange={e => setHorasSemanales(e.target.value)}
                     style={{ width: 88, padding: '7px 9px' }}
+                  />
+                </div>
+                <div className="sr" style={{ alignItems: 'center', gap: 12 }}>
+                  <label className="sr-l" htmlFor="proposal-cronograma-by-profile">
+                    <span>👤</span>Generar cronograma por perfiles
+                  </label>
+                  <input
+                    id="proposal-cronograma-by-profile"
+                    type="checkbox"
+                    checked={cronogramaPorPerfiles}
+                    onChange={e => setCronogramaPorPerfiles(e.target.checked)}
                   />
                 </div>
                 <div className="sr">

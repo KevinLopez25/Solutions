@@ -10,6 +10,7 @@ class RolCronograma(BaseModel):
 
 class ActividadCronograma(BaseModel):
     torre: str
+    etiqueta: str = ""
     horas: float
     personas: int = 1
 
@@ -18,6 +19,7 @@ class GenerarCronogramaRequest(BaseModel):
     proyecto: str = ""
     cliente: str = ""
     horas_semanales: float = 42
+    cronograma_por_perfiles: bool = False
     roles: list[RolCronograma] = []
     actividades: list[ActividadCronograma] = []
 

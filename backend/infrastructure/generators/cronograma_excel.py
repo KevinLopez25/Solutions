@@ -74,7 +74,7 @@ def generate_cronograma(config: dict) -> bytes:
     total_horas = 0
     for act in actividades:
         p = max(1, int(act.get("personas", 1)))
-        act["semanas"] = max(1, math.ceil(act["horas"] / horas_semanales / p))
+        act["semanas"] = _calcular_semanas(act["horas"], horas_semanales, p)
         total_horas += act["horas"]
 
     total_semanas  = max(a["semanas"] for a in actividades)
@@ -126,6 +126,12 @@ def _horas_semanales(value):
     except (TypeError, ValueError):
         return HORAS_SEMANALES_DEFAULT
     return horas if horas > 0 else HORAS_SEMANALES_DEFAULT
+
+
+def _calcular_semanas(horas, horas_semanales, personas):
+    horas_semanales_perfil = float(horas) / float(horas_semanales)
+    semanas = horas_semanales_perfil / max(1, int(personas))
+    return max(1, math.ceil(semanas))
 
 
 def _normalizar_roles(roles_raw):
@@ -440,7 +446,7 @@ def _build_drawing(actividades, roles, total_semanas, meta, sin_semanas):
         color = BARRA_COLORES[(i + 1) % len(BARRA_COLORES)]
 
         # Etiqueta (col A)
-        sid = _shape(root, sid, act["torre"],
+        sid = _shape(root, sid, act.get("etiqueta") or act.get("actividad") or act["torre"],
                      0, row, 0, row,
                      color, "FFFFFF", bold=True, font_sz=900,
                      col_w=COL_A_EMU, row_h=ROW_ACT_EMU, adj="17948")
