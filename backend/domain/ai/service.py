@@ -536,59 +536,84 @@ def _apply_descriptions_to_pptx(pptx_bytes: bytes, descriptions: list[dict]) -> 
             continue
 
         modified = False
+        ROLE_NAMES = ('CuadroTexto 10', 'CuadroTexto 30', 'CuadroTexto 47', 'CuadroTexto 53')
+
         for grp in root.iter(f'{{{_P_NS}}}grpSp'):
-            inner_name_map = {}
+            # Recolectar los shapes del grupo con su texto.
+            shapes = []  # (is_role, name, sp, texto)
             for sp in grp.iter(f'{{{_P_NS}}}sp'):
                 nvpr = sp.find(f'.//{{{_P_NS}}}cNvPr')
-                if nvpr is None:
+                nm = nvpr.attrib.get('name', '') if nvpr is not None else ''
+                texto = ''.join(t.text or '' for t in sp.iter(f'{{{_A_NS}}}t')).strip()
+                if not texto:
                     continue
-                nm = nvpr.attrib.get('name', '')
-                inner_name_map.setdefault(nm, []).append(sp)
+                is_role = nm in ROLE_NAMES
+                shapes.append((is_role, nm, sp, texto))
 
-            for role_name, _desc_name in (
-                ('CuadroTexto 10', 'CuadroTexto 22'),
-                ('CuadroTexto 30', 'CuadroTexto 28'),
-                ('CuadroTexto 47', 'CuadroTexto 34'),
-                ('CuadroTexto 53', 'CuadroTexto 51'),
-            ):
-                role_sps = inner_name_map.get(role_name)
-                if not role_sps:
+            if not shapes:
+                continue
+
+            # Si hay un shape de rol conocido, ese es el título.
+            role_sp = next((x for x in shapes if x[0]), None)
+            desc_sps = []
+            for is_role, nm, sp, texto in shapes:
+                if is_role:
                     continue
-                rol_text = ''.join(
-                    t.text or '' for t in role_sps[0].iter(f'{{{_A_NS}}}t')
-                ).strip()
-                rol_norm = _normalize_text(rol_text)
-                desc_sps = inner_name_map.get(_desc_name)
-                if not desc_sps:
+                desc_sps.append((sp, texto))
+
+            if role_sp is None:
+                # Sin nombre estándar: el primer shape puede ser el rol.
+                role_text = shapes[0][3]
+                desc_candidates = [(sp, texto) for (_, _, sp, texto) in shapes[1:]]
+            else:
+                role_text = role_sp[3].strip()
+                desc_candidates = [(sp, texto) for (_, _, sp, texto) in shapes
+                                   if sp is not role_sp[2]]
+
+            rol_norm = _normalize_text(role_text)
+            if rol_norm not in by_rol:
+                continue
+
+            # Elegir la descripción: priorizar el shape que contenga el marcador
+            # de placeholder, si no el que tenga más texto.
+            desc_tgt = None
+            for cand_sp, cand_txt in desc_candidates:
+                if any(m in cand_txt for m in _NO_DESC_MARKERS):
+                    desc_tgt = cand_sp
+                    break
+            if desc_tgt is None and desc_candidates:
+                desc_tgt = max(desc_candidates, key=lambda x: len(x[1]))[0]
+
+            if desc_tgt is None:
+                continue
+
+            desc_text = ''.join(t.text or '' for t in desc_tgt.iter(f'{{{_A_NS}}}t')).strip()
+            if not desc_text or not any(m in desc_text for m in _NO_DESC_MARKERS):
+                # Solo reescribimos si aún es un marcador vacío.
+                if desc_text:
                     continue
-                desc_text = ''.join(
-                    t.text or '' for t in desc_sps[0].iter(f'{{{_A_NS}}}t')
-                ).strip()
-                if rol_norm in by_rol and (
-                    not desc_text or any(m in desc_text for m in _NO_DESC_MARKERS)
-                ):
-                    new_desc = by_rol[rol_norm]
-                    txb = desc_sps[0].find(f'{{{_P_NS}}}txBody')
-                    if txb is None:
-                        continue
-                    paras = txb.findall(f'{{{_A_NS}}}p')
-                    template_para = paras[0] if paras else None
-                    for p in paras:
-                        txb.remove(p)
-                    lines = [l for l in new_desc.split('\n') if l.strip()] or [new_desc]
-                    for line in lines:
-                        if template_para is not None:
-                            txb.append(_build_para_from_template(template_para, line))
-                        else:
-                            p_xml = (
-                                f'<a:p xmlns:a="{_A_NS}">'
-                                f'<a:r><a:t>{_esc(line)}</a:t></a:r></a:p>'
-                            )
-                            txb.append(etree.fromstring(p_xml))
-                    _update_desc_height(desc_sps[0], new_desc)
-                    _normalize_bodyPr(txb)
-                    modified = True
-                break
+
+            new_desc = by_rol[rol_norm]
+            txb = desc_tgt.find(f'{{{_P_NS}}}txBody')
+            if txb is None:
+                continue
+            paras = txb.findall(f'{{{_A_NS}}}p')
+            template_para = paras[0] if paras else None
+            for p in paras:
+                txb.remove(p)
+            lines = [l for l in new_desc.split('\n') if l.strip()] or [new_desc]
+            for line in lines:
+                if template_para is not None:
+                    txb.append(_build_para_from_template(template_para, line))
+                else:
+                    p_xml = (
+                        f'<a:p xmlns:a="{_A_NS}">'
+                        f'<a:r><a:t>{_esc(line)}</a:t></a:r></a:p>'
+                    )
+                    txb.append(etree.fromstring(p_xml))
+            _update_desc_height(desc_tgt, new_desc)
+            _normalize_bodyPr(txb)
+            modified = True
 
         if modified:
             files[path] = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)

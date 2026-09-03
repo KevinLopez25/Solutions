@@ -68,3 +68,18 @@ app.include_router(api_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/health/ai")
+def health_ai():
+    """Diagnóstico de IA: verifica en el navegador que este backend tiene la API key cargada."""
+    return {
+        "groq_configurada": settings.groq_configurada,
+        "model": settings.GROQ_MODEL,
+        "mensaje": (
+            "API key de Groq cargada correctamente."
+            if settings.groq_configurada
+            else "GROQ_API_KEY VACIA: este backend arranco SIN la clave. "
+                 "Cierra TODOS los procesos python, verifica backend/.env y vuelve a arrancar."
+        ),
+    }

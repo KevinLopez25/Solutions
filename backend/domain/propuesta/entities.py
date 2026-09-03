@@ -87,6 +87,8 @@ class GenerarPropuestaRequest(BaseModel):
     roles: list[PerfilInput] = []
     template_name: str | None = None
     template_section: str | None = None
+    tarjeta_comercial: str | None = None
+    tarjeta_comercial_pais: str | None = None
 
 
 class GenerarPropuestaResponse(BaseModel):

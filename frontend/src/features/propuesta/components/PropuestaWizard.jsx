@@ -8,6 +8,7 @@ import ExcelUploader from './ExcelUploader'
 import TorreSelector from './TorreSelector'
 import PerfilSelector from './PerfilSelector'
 import PillsControl from './PillsControl'
+import TarjetaComercialSelector from './TarjetaComercialSelector'
 
 const STEPS = ['Modo', 'Excel', 'Torres', 'Filial', 'Secciones', 'Resumen']
 const PROG_TEXT = ['Elige el tipo', 'Sube el Excel', 'Revisa los datos', 'Elige la filial', 'Configura secciones', 'Genera el documento']
@@ -24,6 +25,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
   const [logoMsg, setLogoMsg] = useState(null) // { ok: bool, text: string }
   const [templateMsg, setTemplateMsg] = useState(null)
   const [uploadingTemplate, setUploadingTemplate] = useState(false)
+  const [tarjetaComercial, setTarjetaComercial] = useState(null)
   const {
     filial, setFilial,
     excelData, setExcelData,
@@ -181,7 +183,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
 
   async function handleGenerate() {
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
-    let draft = await generate(efectivos)
+    let draft = await generate(efectivos, false, tarjetaComercial)
     if (!draft) return
 
     if (logoFile) {
@@ -721,7 +723,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                       onClick={async () => {
                         const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
                         setTemplateMsg(null)
-                        const draft = await applyTemplateToProposal(efectivos)
+                        const draft = await applyTemplateToProposal(efectivos, tarjetaComercial)
                         if (draft) {
                           if (logoFile) {
                             try {
@@ -811,6 +813,16 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="gen-block">
+              <span className="gen-emoji">💳</span>
+              <div className="gen-t">Tarjeta comercial</div>
+              <div className="gen-s">Busca el nombre del comercial y añade su tarjeta. Se insertarán sus 2 slides después del slide 13.</div>
+              <TarjetaComercialSelector
+                value={tarjetaComercial}
+                onChange={setTarjetaComercial}
+              />
             </div>
 
             <div className="gen-block">
