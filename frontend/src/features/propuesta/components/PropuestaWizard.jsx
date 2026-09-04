@@ -198,7 +198,7 @@ export default function PropuestaWizard({ onDraftGenerated, proposalDraft, revie
     }
 
     const efectivos = excelVacio && modoPerfiles === 'manual' ? perfilesManuales : []
-    let draft = await generate(efectivos, false, tarjetaComercial)
+    let draft = await generate(efectivos, false, productivityReview, tarjetaComercial)
     if (!draft) return
 
     if (logoFile) {

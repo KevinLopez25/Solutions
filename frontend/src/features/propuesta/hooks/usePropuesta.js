@@ -94,7 +94,12 @@ export function usePropuesta() {
     setOpciones(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function generate(efectivosManuales, useTemplate = false, tarjetaComercial = null) {
+  async function generate(
+    efectivosManuales,
+    useTemplate = false,
+    productivityReview = null,
+    tarjetaComercial = null,
+  ) {
     setLoading(true)
     setError(null)
     setProposalDraft(null)
@@ -211,6 +216,7 @@ export function usePropuesta() {
         as_is_description:    cleanAsIsDescription,
         actividades:          actividades.slice(0, 100),
         roles:                roles.slice(0, 100),
+        cronograma_por_perfiles: Boolean(cronogramaPorPerfiles),
         tarjeta_comercial:    (tarjetaComercial && tarjetaComercial.nombre)
           ? String(tarjetaComercial.nombre).trim()
           : (tarjetaComercial && typeof tarjetaComercial === 'string'
